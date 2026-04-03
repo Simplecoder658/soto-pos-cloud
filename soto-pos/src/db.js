@@ -1,18 +1,18 @@
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxssbFQOXAslLrHX39_np5-zEEl7ba6Um6cQ0NrvjnyeVuSquJqRUQUnX44t9jJsztCWg/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwPGU9wmoU6Ztq4JYsDWBM1-Z2j3qWfZBDfc-utEtxhqEDfLAqbPhsZAAVuB8gixl3w3g/exec  ";
+const SECRET_TOKEN = "BQsi2277";
 
 export async function fetchCloudData() {
   try {
-    const res = await fetch(SCRIPT_URL);
-    if (!res.ok) throw new Error("Gagal mengambil data");
-    return await res.json();
-  } catch (err) {
-    console.error("Gagal Load Cloud:", err);
+    const response = await fetch(SCRIPT_URL);
+    return await response.json();
+  } catch (error) {
     return null;
   }
 }
 
 export async function saveOrderToSheet(cart, total, method, kasirName) {
   const payload = {
+    token: SECRET_TOKEN,
     action: "addOrder",
     timestamp: new Date().toLocaleString('id-ID'),
     items: cart.map(i => `${i.name} (${i.quantity}x)`).join(", "),
@@ -28,10 +28,16 @@ export async function saveOrderToSheet(cart, total, method, kasirName) {
   });
 }
 
-export async function updateQrisCloud(url) {
+export async function updateQrisCloud(newUrl) {
+  const payload = {
+    token: SECRET_TOKEN,
+    action: "updateQris",
+    url: newUrl
+  };
+
   return await fetch(SCRIPT_URL, {
     method: "POST",
     mode: "no-cors",
-    body: JSON.stringify({ action: "updateQris", url: url })
+    body: JSON.stringify(payload)
   });
 }
