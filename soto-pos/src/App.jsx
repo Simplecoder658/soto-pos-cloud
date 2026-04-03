@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutGrid, Settings, Trash2, LogOut, Wallet, 
-  Banknote, X, RefreshCw, Camera, CreditCard 
+  Banknote, X, RefreshCw, Camera 
 } from 'lucide-react';
 import { fetchCloudData, saveOrderToSheet, updateQrisCloud } from './db';
 
@@ -30,7 +30,6 @@ export default function App() {
 
   useEffect(() => { initApp(); }, []);
 
-  // Fungsi Pembersih Harga agar tidak NaN
   const cleanPrice = (p) => parseFloat(String(p).replace(/[^0-9.-]+/g,"")) || 0;
 
   const handleCheckout = async () => {
@@ -131,12 +130,12 @@ export default function App() {
                 ))}
               </div>
               
-              <div className="grid grid-cols-3 gap-2 mb-6">
-                {['Tunai', 'QRIS', 'Debit'].map(m => (
+              {/* Pilihan Pembayaran Balik ke 2 Tombol Saja */}
+              <div className="grid grid-cols-2 gap-2 mb-6">
+                {['Tunai', 'QRIS'].map(m => (
                   <button key={m} onClick={() => setPaymentMethod(m)} className={`py-4 rounded-xl text-[10px] font-black border-2 transition-all flex flex-col items-center gap-1 ${paymentMethod === m ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-400 border-slate-100'}`}>
                     {m === 'Tunai' && <Banknote size={14}/>}
                     {m === 'QRIS' && <Wallet size={14}/>}
-                    {m === 'Debit' && <CreditCard size={14}/>}
                     {m}
                   </button>
                 ))}
@@ -191,7 +190,7 @@ function LoginScreen({ users, onLogin, onRefresh }) {
     e.preventDefault();
     const foundUser = users.find(u => String(u.pin).trim() === String(pin).trim());
     if (foundUser) onLogin(foundUser);
-    else { alert(`PIN SALAH! PIN di Cloud: [${users.map(u => u.pin).join(", ")}]`); setPin(''); }
+    else { alert(`PIN SALAH!`); setPin(''); }
   };
   return (
     <div className="h-screen w-screen flex items-center justify-center bg-slate-100">
