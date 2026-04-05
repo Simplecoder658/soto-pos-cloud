@@ -1,4 +1,4 @@
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbLOsvkrjUjkwNtEIzTdG7NU0i5xgABBZqzmll85MWTVGGhz6J3X5GI3ejAQd-93j-Rrg/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxJu34oKCpLpQVlAc4l2WCPlFJbpOavc_5Fsv2__BnIdpAqtWppJVxu_QzZtvbb_nI6AQ/exec";
 const SECRET_TOKEN = "BQsi2277";
 
 export async function fetchCloudData() {
