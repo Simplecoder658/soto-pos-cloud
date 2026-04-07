@@ -2,67 +2,55 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 1. RESET STANDAR */
+/* UI KASIR BIASA */
 body {
   @apply antialiased text-slate-900 bg-slate-50;
-  margin: 0;
-  padding: 0;
 }
 
-/* 2. CUSTOM SCROLLBAR (Biar ala-ala Aplikasi Mahal) */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-/* 3. CORE PRINT LOGIC (Paling Penting!) */
+/* LOGIC PRINT TOTAL CLEAN */
 @media print {
-  /* Sembunyikan semua elemen UI Kasir */
-  body * {
-    visibility: hidden;
-  }
-
-  /* Munculkan hanya area struk */
-  #print-area, #print-area * {
-    visibility: visible;
-  }
-
-  /* Atur posisi struk ke pojok kiri atas kertas */
-  #print-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
-    background-color: white !important;
-  }
-
-  /* Paksa teks jadi hitam pekat & font standar printer */
-  #print-area span, 
-  #print-area p, 
-  #print-area h2 {
-    color: black !important;
-  }
-
-  /* Hilangkan tombol aksi di dalam struk saat diprint */
-  .print\:hidden {
+  /* 1. Sembunyikan SEMUA elemen di layar tanpa sisa */
+  html, body, #root, nav, aside, main, .fixed, .absolute {
     display: none !important;
   }
 
-  /* Hilangkan garis amber/kuning di atas struk saat di kertas */
-  .print\:border-none {
-    border-top: none !important;
+  /* 2. Hanya tampilkan Modal Struk saja */
+  #print-area {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 10px !important;
+    border: none !important;
+    box-shadow: none !important;
   }
-}
 
-/* 4. TYPOGRAPHY KASIR */
-h1, h2, button {
-  @apply tracking-tighter;
+  /* 3. Pastikan struk dan anak-anaknya muncul */
+  #print-area, #print-area * {
+    visibility: visible !important;
+    display: block !important; /* Paksa muncul */
+    color: black !important;
+  }
+
+  /* 4. Khusus teks harga biar tetep flex (tetap sejajar kiri-kanan) */
+  #print-area .flex {
+    display: flex !important;
+    justify-content: space-between !important;
+  }
+
+  /* 5. Buang dekorasi UI: Garis Amber di atas & Tombol */
+  #print-area {
+    border-top: none !important; /* Hapus garis oren */
+    border-radius: 0 !important;
+  }
+
+  .print\:hidden {
+    display: none !important; /* Hapus tombol Print/Tutup di kertas */
+  }
+
+  /* 6. Hapus header/footer bawaan browser (seperti link url di pojok kertas) */
+  @page {
+    margin: 0;
+  }
 }
