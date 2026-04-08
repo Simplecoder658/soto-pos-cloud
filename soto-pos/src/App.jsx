@@ -60,6 +60,7 @@ export default function App() {
             .line { border-bottom: 1px dashed black; margin: 5px 0; }
             .flex { display: flex; justify-content: space-between; }
             .header { font-size: 14pt; font-weight: bold; margin-bottom: 2px; }
+            .address { font-size: 7pt; margin-bottom: 5px; line-height: 1.1; }
             .item-row { margin-bottom: 3px; font-size: 9pt; }
             .total-row { font-size: 11pt; margin-top: 5px; font-weight: bold; }
             .footer { margin-top: 15px; font-size: 8pt; }
@@ -68,6 +69,11 @@ export default function App() {
         <body>
           <div class="text-center">
             <div class="header">SOTO RA-ME23</div>
+            <div class="address">
+              Jl. Watumujur II, Ketawanggede,<br>
+              Kec. Lowokwaru, Kota Malang,<br>
+              Jawa Timur 65141
+            </div>
             <div style="font-size: 8pt;">Antrean #${lastOrder.no}</div>
             <div style="font-size: 7pt;">${lastOrder.date}</div>
           </div>
@@ -159,7 +165,10 @@ export default function App() {
           <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden border-t-[12px] border-amber-500">
             <div className="p-8 text-center border-b border-dashed border-slate-200">
               <h2 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900">Soto Ra-Me23</h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Antrean #{lastOrder.no}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase leading-tight mt-1">
+                Jl. Watumujur II, Ketawanggede, Malang
+              </p>
+              <p className="text-[10px] font-bold text-slate-300 uppercase mt-2 italic">Antrean #{lastOrder.no}</p>
             </div>
             
             <div className="p-8 space-y-4 font-mono text-[11px]">
@@ -208,7 +217,7 @@ export default function App() {
         </div>
       )}
 
-      {/* SIDEBAR NAVIGATION */}
+      {/* SIDEBAR */}
       <nav className="w-20 bg-white border-r flex flex-col items-center py-8 justify-between shadow-sm">
         <div className="flex flex-col gap-8">
           <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg font-black italic text-xl">R</div>
@@ -220,7 +229,7 @@ export default function App() {
         <button onClick={() => setCurrentUser(null)} className="text-slate-300 hover:text-red-500 transition-all"><LogOut size={24}/></button>
       </nav>
 
-      {/* MAIN VIEW AREA */}
+      {/* MAIN VIEW */}
       <div className="flex-1 flex overflow-hidden">
         {view === 'admin' ? (
           <AdminPanel config={config} onRefresh={initApp} />
@@ -284,7 +293,7 @@ export default function App() {
                 ))}
               </div>
               <div className="pt-6 border-t-4 border-double border-slate-100">
-                <div className="flex justify-between items-center mb-6 text-slate-900 font-black italic text-3xl tracking-tighter">
+                <div className="flex justify-between items-center mb-6 text-slate-900 font-black italic text-3xl tracking-tighter text-center">
                   <span>Rp</span>
                   <span>{cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}</span>
                 </div>
