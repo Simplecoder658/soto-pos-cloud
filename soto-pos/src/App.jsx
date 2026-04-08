@@ -31,7 +31,7 @@ export default function App() {
   useEffect(() => { initApp(); }, []);
 
   // ==========================================
-  // FUNGSI CETAK UKURAN STANDARD THERMAL (58mm)
+  // FUNGSI CETAK STANDARD THERMAL 58mm (FIXED)
   // ==========================================
   const handleCetakStruk = () => {
     if (!lastOrder) return;
@@ -41,15 +41,15 @@ export default function App() {
     const htmlStruk = `
       <html>
         <head>
-          <title>Print Struk</title>
+          <title>Print Struk - Soto Ra-Me23</title>
           <style>
             @page { 
               margin: 0; 
-              size: 58mm auto; /* Standar Lebar Printer Kasir */
+              size: 58mm auto; 
             }
             body { 
               font-family: 'Courier New', Courier, monospace; 
-              width: 48mm; /* Area cetak aman */
+              width: 48mm; 
               padding: 2mm; 
               margin: 0; 
               color: black; 
@@ -59,7 +59,6 @@ export default function App() {
             .text-center { text-align: center; }
             .line { border-bottom: 1px dashed black; margin: 5px 0; }
             .flex { display: flex; justify-content: space-between; }
-            .bold { font-weight: bold; }
             .header { font-size: 14pt; font-weight: bold; margin-bottom: 2px; }
             .item-row { margin-bottom: 3px; font-size: 9pt; }
             .total-row { font-size: 11pt; margin-top: 5px; font-weight: bold; }
@@ -68,7 +67,7 @@ export default function App() {
         </head>
         <body>
           <div class="text-center">
-            <div class="header">SOTO CLOUD</div>
+            <div class="header">SOTO RA-ME23</div>
             <div style="font-size: 8pt;">Antrean #${lastOrder.no}</div>
             <div style="font-size: 7pt;">${lastOrder.date}</div>
           </div>
@@ -104,7 +103,6 @@ export default function App() {
             window.onload = function() {
               window.print();
               window.onafterprint = function() { window.close(); };
-              // Backup close jika onafterprint tidak jalan
               setTimeout(() => { window.close(); }, 1000);
             };
           </script>
@@ -149,7 +147,7 @@ export default function App() {
     }
   };
 
-  if (isLoading) return <div className="h-screen flex items-center justify-center font-black text-amber-500 animate-pulse uppercase tracking-widest">Memuat Soto Cloud...</div>;
+  if (isLoading) return <div className="h-screen flex items-center justify-center font-black text-amber-500 animate-pulse uppercase tracking-widest">Memuat Soto Ra-Me23...</div>;
   if (!currentUser) return <LoginScreen users={users} onLogin={(u) => setCurrentUser(u)} onRefresh={initApp} />;
 
   return (
@@ -160,7 +158,7 @@ export default function App() {
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden border-t-[12px] border-amber-500">
             <div className="p-8 text-center border-b border-dashed border-slate-200">
-              <h2 className="text-2xl font-black uppercase italic">Soto Cloud</h2>
+              <h2 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900">Soto Ra-Me23</h2>
               <p className="text-[10px] font-bold text-slate-400 uppercase">Antrean #{lastOrder.no}</p>
             </div>
             
@@ -171,7 +169,7 @@ export default function App() {
               </div>
               <div className="py-4 border-y border-dashed border-slate-200 space-y-2">
                 {lastOrder.items.map((item, idx) => (
-                  <div key={idx} className="flex justify-between font-bold">
+                  <div key={idx} className="flex justify-between font-bold text-slate-800">
                     <span>{item.name} x{item.quantity}</span>
                     <span>{(item.price * item.quantity).toLocaleString()}</span>
                   </div>
@@ -184,7 +182,7 @@ export default function App() {
             </div>
 
             <div className="p-6 bg-slate-50 grid grid-cols-2 gap-3">
-              <button onClick={handleCetakStruk} className="py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 active:scale-95 transition-all">
+              <button onClick={handleCetakStruk} className="py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-slate-200">
                 <Printer size={16}/> Cetak Struk
               </button>
               <button onClick={() => setShowReceipt(false)} className="py-4 bg-white border-2 border-slate-200 text-slate-400 rounded-2xl font-black uppercase text-[10px] active:scale-95">
@@ -198,22 +196,22 @@ export default function App() {
       {/* MODAL QRIS */}
       {showQRModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 text-center">
-          <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm border-4 border-amber-500">
+          <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm border-4 border-amber-500 shadow-2xl">
             <div className="flex justify-between items-center mb-6 text-slate-400 font-black text-[10px] uppercase">
-              <span>Scan QRIS</span>
+              <span>Scan QRIS Pembayaran</span>
               <button onClick={() => setShowQRModal(false)}><X size={20}/></button>
             </div>
             <img src={config.qris} className="w-full aspect-square object-contain mb-4 border rounded-2xl p-2 bg-white" alt="QRIS" />
             <p className="text-3xl font-black italic mb-6">Rp {cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}</p>
-            <button onClick={handleCheckout} className="w-full py-5 bg-green-600 text-white rounded-2xl font-black shadow-lg uppercase active:scale-95 transition-all">Konfirmasi Bayar</button>
+            <button onClick={handleCheckout} className="w-full py-5 bg-green-600 text-white rounded-2xl font-black shadow-lg uppercase active:scale-95 transition-all tracking-widest">Konfirmasi Bayar</button>
           </div>
         </div>
       )}
 
-      {/* SIDEBAR */}
+      {/* SIDEBAR NAVIGATION */}
       <nav className="w-20 bg-white border-r flex flex-col items-center py-8 justify-between shadow-sm">
         <div className="flex flex-col gap-8">
-          <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg font-black italic text-xl">S</div>
+          <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg font-black italic text-xl">R</div>
           <button onClick={() => setView('pos')} className={`p-3 rounded-xl transition-all ${view === 'pos' ? 'bg-amber-50 text-amber-600' : 'text-slate-300'}`}><LayoutGrid size={24}/></button>
           {currentUser.role === 'admin' && (
             <button onClick={() => setView('admin')} className={`p-3 rounded-xl transition-all ${view === 'admin' ? 'bg-slate-100 text-slate-900' : 'text-slate-300'}`}><Settings size={24}/></button>
@@ -222,6 +220,7 @@ export default function App() {
         <button onClick={() => setCurrentUser(null)} className="text-slate-300 hover:text-red-500 transition-all"><LogOut size={24}/></button>
       </nav>
 
+      {/* MAIN VIEW AREA */}
       <div className="flex-1 flex overflow-hidden">
         {view === 'admin' ? (
           <AdminPanel config={config} onRefresh={initApp} />
@@ -261,7 +260,7 @@ export default function App() {
               <h2 className="text-[10px] font-black uppercase text-slate-400 mb-6 tracking-widest text-center flex items-center justify-center gap-2">
                 <ShoppingBag size={14}/> Keranjang
               </h2>
-              <div className="flex-1 overflow-y-auto space-y-4 mb-6">
+              <div className="flex-1 overflow-y-auto space-y-4 mb-6 scrollbar-hide">
                 {cart.map(item => (
                   <div key={item.id} className="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100 shadow-sm">
                     <div className="flex-1 min-w-0 mr-2">
@@ -270,7 +269,9 @@ export default function App() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-black text-xs px-2 py-1 bg-white rounded-lg border">{item.quantity}x</span>
-                      <button onClick={() => setCart(cart.filter(x => x.id !== item.id))} className="text-red-300 hover:text-red-500 transition-all"><Trash2 size={16}/></button>
+                      <button onClick={() => setCart(cart.filter(x => x.id !== item.id))} className="text-red-300 hover:text-red-500 transition-all">
+                        <Trash2 size={16}/>
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -283,11 +284,11 @@ export default function App() {
                 ))}
               </div>
               <div className="pt-6 border-t-4 border-double border-slate-100">
-                <div className="flex justify-between items-center mb-6 text-slate-900 font-black italic text-3xl tracking-tighter text-center">
+                <div className="flex justify-between items-center mb-6 text-slate-900 font-black italic text-3xl tracking-tighter">
                   <span>Rp</span>
                   <span>{cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}</span>
                 </div>
-                <button onClick={handleCheckout} disabled={isSyncing || cart.length === 0} className={`w-full py-5 rounded-2xl font-black text-xs shadow-xl transition-all uppercase ${cart.length === 0 ? 'bg-slate-100 text-slate-300' : 'bg-amber-500 text-white shadow-amber-200 active:scale-95'}`}>
+                <button onClick={handleCheckout} disabled={isSyncing || cart.length === 0} className={`w-full py-5 rounded-2xl font-black text-xs shadow-xl transition-all uppercase tracking-[0.2em] ${cart.length === 0 ? 'bg-slate-100 text-slate-300' : 'bg-amber-500 text-white shadow-amber-200 active:scale-95'}`}>
                   {isSyncing ? 'SEDANG PROSES...' : `BAYAR SEKARANG`}
                 </button>
               </div>
@@ -299,6 +300,7 @@ export default function App() {
   );
 }
 
+// PANEL ADMIN
 function AdminPanel({ config, onRefresh }) {
   const [isUpdating, setIsUpdating] = useState(false);
   const handleFileUpload = (e) => {
@@ -321,7 +323,7 @@ function AdminPanel({ config, onRefresh }) {
         <div className="p-10 border-4 border-dashed border-slate-100 rounded-[3.5rem] flex flex-col items-center gap-4 bg-slate-50 text-center">
           <Camera size={40} className="text-blue-500" />
           <div className="flex gap-2 w-full">
-            <label className="flex-1 py-4 bg-blue-500 text-white rounded-2xl font-black text-[9px] uppercase cursor-pointer tracking-widest shadow-lg">
+            <label className="flex-1 py-4 bg-blue-500 text-white rounded-2xl font-black text-[9px] uppercase cursor-pointer tracking-widest shadow-lg shadow-blue-100">
               {isUpdating ? "PROSES..." : "GANTI QRIS"}
               <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUpdating} />
             </label>
@@ -333,13 +335,14 @@ function AdminPanel({ config, onRefresh }) {
   );
 }
 
+// SCREEN LOGIN
 function LoginScreen({ users, onLogin, onRefresh }) {
   const [pin, setPin] = useState('');
   return (
     <div className="h-screen w-screen flex items-center justify-center bg-slate-100 p-4">
       <div className="bg-white p-14 rounded-[4rem] shadow-2xl w-full max-w-sm text-center border-b-[12px] border-amber-500">
-        <div className="w-20 h-20 bg-amber-500 rounded-[1.5rem] flex items-center justify-center text-white mx-auto mb-10 font-black text-4xl italic shadow-xl shadow-amber-100">S</div>
-        <h2 className="text-3xl font-black mb-10 uppercase italic tracking-tighter">Soto Cloud</h2>
+        <div className="w-20 h-20 bg-amber-500 rounded-[1.5rem] flex items-center justify-center text-white mx-auto mb-10 font-black text-4xl italic shadow-xl shadow-amber-100">R</div>
+        <h2 className="text-3xl font-black mb-10 uppercase italic tracking-tighter">Soto Ra-Me23</h2>
         <form onSubmit={(e) => { e.preventDefault(); const u = users.find(u => String(u.pin) === String(pin)); if(u) onLogin(u); else alert("PIN SALAH!"); setPin(''); }} className="space-y-5">
           <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} className="w-full bg-slate-50 py-6 rounded-3xl text-center text-4xl font-black outline-none border-4 border-transparent focus:border-amber-500 transition-all placeholder-slate-200" placeholder="••••" autoFocus />
           <button type="submit" className="w-full py-5 bg-slate-900 text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl active:scale-95 transition-all">Masuk Kasir</button>
