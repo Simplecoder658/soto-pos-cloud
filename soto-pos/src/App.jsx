@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutGrid, Settings, Trash2, LogOut, Wallet, Banknote, X, RefreshCw, Camera, ShoppingBag, Printer } from 'lucide-react';
-// Import fungsi db (Pastikan file db.js Bos sudah benar)
 import { fetchCloudData, saveOrderToSheet, updateQrisCloud, updateShiftCloud } from './db';
 
 export default function App() {
@@ -32,44 +31,46 @@ export default function App() {
   useEffect(() => { initApp(); }, []);
 
   // ==========================================
-  // FUNGSI CETAK ANTI KOSONG (STRATEGI FINAL)
+  // FUNGSI CETAK UKURAN STANDARD THERMAL (58mm)
   // ==========================================
   const handleCetakStruk = () => {
     if (!lastOrder) return;
 
     const printWindow = window.open('', '_blank', 'width=300,height=600');
     
-    // Kita buat HTML murni dari nol untuk printer
     const htmlStruk = `
       <html>
         <head>
-          <title>Cetak Struk #SotoCloud</title>
+          <title>Print Struk</title>
           <style>
-            @page { margin: 0; }
+            @page { 
+              margin: 0; 
+              size: 58mm auto; /* Standar Lebar Printer Kasir */
+            }
             body { 
               font-family: 'Courier New', Courier, monospace; 
-              width: 280px; 
-              padding: 15px; 
+              width: 48mm; /* Area cetak aman */
+              padding: 2mm; 
               margin: 0; 
               color: black; 
-              font-size: 12px;
+              font-size: 10pt;
               line-height: 1.2;
             }
             .text-center { text-align: center; }
-            .line { border-bottom: 1px dashed black; margin: 10px 0; }
+            .line { border-bottom: 1px dashed black; margin: 5px 0; }
             .flex { display: flex; justify-content: space-between; }
             .bold { font-weight: bold; }
-            .header { font-size: 16px; font-weight: bold; margin-bottom: 2px; }
-            .item-row { margin-bottom: 4px; }
-            .total-row { font-size: 14px; margin-top: 10px; font-weight: bold; }
-            .footer { margin-top: 20px; font-size: 10px; }
+            .header { font-size: 14pt; font-weight: bold; margin-bottom: 2px; }
+            .item-row { margin-bottom: 3px; font-size: 9pt; }
+            .total-row { font-size: 11pt; margin-top: 5px; font-weight: bold; }
+            .footer { margin-top: 15px; font-size: 8pt; }
           </style>
         </head>
         <body>
           <div class="text-center">
             <div class="header">SOTO CLOUD</div>
-            <div>Antrean #${lastOrder.no}</div>
-            <div style="font-size: 9px;">${lastOrder.date}</div>
+            <div style="font-size: 8pt;">Antrean #${lastOrder.no}</div>
+            <div style="font-size: 7pt;">${lastOrder.date}</div>
           </div>
           <div class="line"></div>
           
@@ -79,14 +80,18 @@ export default function App() {
                 <span>${item.name}</span>
                 <span>${(item.price * item.quantity).toLocaleString()}</span>
               </div>
-              <div style="font-size: 10px;">${item.quantity} x ${Number(item.price).toLocaleString()}</div>
+              <div style="font-size: 8pt;">${item.quantity} x ${Number(item.price).toLocaleString()}</div>
             </div>
           `).join('')}
           
           <div class="line"></div>
           <div class="flex total-row">
-            <span>TOTAL (${lastOrder.method})</span>
+            <span>TOTAL</span>
             <span>Rp ${lastOrder.total.toLocaleString()}</span>
+          </div>
+          <div class="flex" style="font-size: 9pt; margin-top: 2px;">
+            <span>Metode</span>
+            <span>${lastOrder.method}</span>
           </div>
           <div class="line"></div>
           
@@ -97,9 +102,10 @@ export default function App() {
 
           <script>
             window.onload = function() {
-              window.focus();
               window.print();
-              setTimeout(() => { window.close(); }, 500);
+              window.onafterprint = function() { window.close(); };
+              // Backup close jika onafterprint tidak jalan
+              setTimeout(() => { window.close(); }, 1000);
             };
           </script>
         </body>
@@ -129,7 +135,6 @@ export default function App() {
         kasir: currentUser.username
       };
       
-      // Simpan ke Google Sheets (Tetap pakai fungsi Bos)
       await saveOrderToSheet(cart, total, paymentMethod, currentUser.username);
       
       setLastOrder(orderData);
@@ -144,7 +149,7 @@ export default function App() {
     }
   };
 
-  if (isLoading) return <div className="h-screen flex items-center justify-center font-black text-amber-500 animate-pulse">MEMUAT SOTO CLOUD...</div>;
+  if (isLoading) return <div className="h-screen flex items-center justify-center font-black text-amber-500 animate-pulse uppercase tracking-widest">Memuat Soto Cloud...</div>;
   if (!currentUser) return <LoginScreen users={users} onLogin={(u) => setCurrentUser(u)} onRefresh={initApp} />;
 
   return (
@@ -156,7 +161,7 @@ export default function App() {
           <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden border-t-[12px] border-amber-500">
             <div className="p-8 text-center border-b border-dashed border-slate-200">
               <h2 className="text-2xl font-black uppercase italic">Soto Cloud</h2>
-              <p className="text-[10px] font-bold text-slate-400">#${lastOrder.no}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Antrean #{lastOrder.no}</p>
             </div>
             
             <div className="p-8 space-y-4 font-mono text-[11px]">
@@ -195,17 +200,17 @@ export default function App() {
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 text-center">
           <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm border-4 border-amber-500">
             <div className="flex justify-between items-center mb-6 text-slate-400 font-black text-[10px] uppercase">
-              <span>Scan QRIS Pembayaran</span>
+              <span>Scan QRIS</span>
               <button onClick={() => setShowQRModal(false)}><X size={20}/></button>
             </div>
             <img src={config.qris} className="w-full aspect-square object-contain mb-4 border rounded-2xl p-2 bg-white" alt="QRIS" />
             <p className="text-3xl font-black italic mb-6">Rp {cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}</p>
-            <button onClick={handleCheckout} className="w-full py-5 bg-green-600 text-white rounded-2xl font-black shadow-lg uppercase tracking-widest active:scale-95 transition-all">Konfirmasi Bayar</button>
+            <button onClick={handleCheckout} className="w-full py-5 bg-green-600 text-white rounded-2xl font-black shadow-lg uppercase active:scale-95 transition-all">Konfirmasi Bayar</button>
           </div>
         </div>
       )}
 
-      {/* SIDEBAR NAVIGATION */}
+      {/* SIDEBAR */}
       <nav className="w-20 bg-white border-r flex flex-col items-center py-8 justify-between shadow-sm">
         <div className="flex flex-col gap-8">
           <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg font-black italic text-xl">S</div>
@@ -217,7 +222,6 @@ export default function App() {
         <button onClick={() => setCurrentUser(null)} className="text-slate-300 hover:text-red-500 transition-all"><LogOut size={24}/></button>
       </nav>
 
-      {/* MAIN VIEW AREA */}
       <div className="flex-1 flex overflow-hidden">
         {view === 'admin' ? (
           <AdminPanel config={config} onRefresh={initApp} />
@@ -244,7 +248,7 @@ export default function App() {
                     const inCart = cart.find(x => x.id === m.id);
                     setCart(inCart ? cart.map(x => x.id === m.id ? {...x, quantity: x.quantity + 1} : x) : [...cart, {...m, quantity: 1}]);
                   }} className={`bg-white p-6 rounded-[2rem] border relative transition-all text-center shadow-sm ${m.stock <= 0 ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:shadow-xl hover:border-amber-200 cursor-pointer active:scale-95'}`}>
-                    <div className="absolute top-4 right-4 text-[8px] font-black bg-slate-100 px-2 py-1 rounded-full">{m.stock <= 0 ? 'HABIS' : `STOK: ${m.stock}`}</div>
+                    <div className="absolute top-4 right-4 text-[8px] font-black bg-slate-100 px-2 py-1 rounded-full uppercase">{m.stock <= 0 ? 'HABIS' : `STOK: ${m.stock}`}</div>
                     <div className="text-5xl mb-3 mt-4">{m.img || '🍲'}</div>
                     <p className="font-bold text-[10px] uppercase truncate text-slate-600 mb-1">{m.name}</p>
                     <p className="text-amber-600 font-black text-[11px]">Rp {Number(m.price).toLocaleString()}</p>
@@ -266,9 +270,7 @@ export default function App() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-black text-xs px-2 py-1 bg-white rounded-lg border">{item.quantity}x</span>
-                      <button onClick={() => setCart(cart.filter(x => x.id !== item.id))} className="text-red-300 hover:text-red-500">
-                        <Trash2 size={16}/>
-                      </button>
+                      <button onClick={() => setCart(cart.filter(x => x.id !== item.id))} className="text-red-300 hover:text-red-500 transition-all"><Trash2 size={16}/></button>
                     </div>
                   </div>
                 ))}
@@ -281,11 +283,11 @@ export default function App() {
                 ))}
               </div>
               <div className="pt-6 border-t-4 border-double border-slate-100">
-                <div className="flex justify-between items-center mb-6 text-slate-900 font-black italic text-3xl tracking-tighter">
+                <div className="flex justify-between items-center mb-6 text-slate-900 font-black italic text-3xl tracking-tighter text-center">
                   <span>Rp</span>
                   <span>{cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}</span>
                 </div>
-                <button onClick={handleCheckout} disabled={isSyncing || cart.length === 0} className={`w-full py-5 rounded-2xl font-black text-xs shadow-xl transition-all uppercase ${cart.length === 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-amber-500 text-white shadow-amber-200 active:scale-95'}`}>
+                <button onClick={handleCheckout} disabled={isSyncing || cart.length === 0} className={`w-full py-5 rounded-2xl font-black text-xs shadow-xl transition-all uppercase ${cart.length === 0 ? 'bg-slate-100 text-slate-300' : 'bg-amber-500 text-white shadow-amber-200 active:scale-95'}`}>
                   {isSyncing ? 'SEDANG PROSES...' : `BAYAR SEKARANG`}
                 </button>
               </div>
@@ -297,7 +299,6 @@ export default function App() {
   );
 }
 
-// PANEL ADMIN
 function AdminPanel({ config, onRefresh }) {
   const [isUpdating, setIsUpdating] = useState(false);
   const handleFileUpload = (e) => {
@@ -309,23 +310,22 @@ function AdminPanel({ config, onRefresh }) {
     };
     reader.readAsDataURL(file);
   };
-
   return (
     <main className="flex-1 p-10 bg-white overflow-y-auto">
       <h1 className="text-4xl font-black mb-12 text-center uppercase tracking-tighter underline decoration-blue-500 decoration-8 italic underline-offset-8">Admin Control</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
         <button onClick={async () => { await updateShiftCloud(config.shiftStatus === 'OPEN' ? 'CLOSED' : 'OPEN'); onRefresh(); }} className={`p-10 border-4 border-dashed rounded-[3.5rem] flex flex-col items-center gap-4 transition-all active:scale-95 ${config.shiftStatus === 'OPEN' ? 'border-red-100 bg-red-50/10' : 'border-green-100 bg-green-50/10'}`}>
           <Settings size={40} className={config.shiftStatus === 'OPEN' ? "text-red-500" : "text-green-500"} />
-          <span className="font-black text-xs uppercase tracking-widest">Shift: {config.shiftStatus}</span>
+          <span className="font-black text-xs uppercase tracking-widest">Shift Status: {config.shiftStatus}</span>
         </button>
         <div className="p-10 border-4 border-dashed border-slate-100 rounded-[3.5rem] flex flex-col items-center gap-4 bg-slate-50 text-center">
           <Camera size={40} className="text-blue-500" />
           <div className="flex gap-2 w-full">
-            <label className="flex-1 py-4 bg-blue-500 text-white rounded-2xl font-black text-[9px] uppercase cursor-pointer shadow-lg">
-              {isUpdating ? "UPLOAD..." : "GANTI QRIS"}
+            <label className="flex-1 py-4 bg-blue-500 text-white rounded-2xl font-black text-[9px] uppercase cursor-pointer tracking-widest shadow-lg">
+              {isUpdating ? "PROSES..." : "GANTI QRIS"}
               <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUpdating} />
             </label>
-            <button onClick={() => { const u = prompt("Masukkan Link Gambar QRIS:"); if(u) updateQrisCloud(u).then(onRefresh); }} className="flex-1 py-4 bg-white border-2 border-slate-200 rounded-2xl font-black text-[9px] uppercase hover:bg-slate-100 transition-all">LINK</button>
+            <button onClick={() => { const u = prompt("Masukkan Link Gambar QRIS:"); if(u) updateQrisCloud(u).then(onRefresh); }} className="flex-1 py-4 bg-white border-2 border-slate-200 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:bg-slate-100 transition-all">LINK</button>
           </div>
         </div>
       </div>
@@ -333,7 +333,6 @@ function AdminPanel({ config, onRefresh }) {
   );
 }
 
-// SCREEN LOGIN
 function LoginScreen({ users, onLogin, onRefresh }) {
   const [pin, setPin] = useState('');
   return (
@@ -342,7 +341,7 @@ function LoginScreen({ users, onLogin, onRefresh }) {
         <div className="w-20 h-20 bg-amber-500 rounded-[1.5rem] flex items-center justify-center text-white mx-auto mb-10 font-black text-4xl italic shadow-xl shadow-amber-100">S</div>
         <h2 className="text-3xl font-black mb-10 uppercase italic tracking-tighter">Soto Cloud</h2>
         <form onSubmit={(e) => { e.preventDefault(); const u = users.find(u => String(u.pin) === String(pin)); if(u) onLogin(u); else alert("PIN SALAH!"); setPin(''); }} className="space-y-5">
-          <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} className="w-full bg-slate-50 py-6 rounded-3xl text-center text-4xl font-black outline-none border-4 border-transparent focus:border-amber-500 transition-all" placeholder="••••" autoFocus />
+          <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} className="w-full bg-slate-50 py-6 rounded-3xl text-center text-4xl font-black outline-none border-4 border-transparent focus:border-amber-500 transition-all placeholder-slate-200" placeholder="••••" autoFocus />
           <button type="submit" className="w-full py-5 bg-slate-900 text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl active:scale-95 transition-all">Masuk Kasir</button>
         </form>
         <button onClick={onRefresh} className="mt-10 text-slate-300 hover:text-amber-500 transition-all"><RefreshCw size={22} className="mx-auto" /></button>
