@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutGrid, Settings, Trash2, LogOut, Wallet, Banknote, X, RefreshCw, Camera, ShoppingBag, Printer } from 'lucide-react';
-// Import fungsi db (Pastikan file db.js Bos tetap menggunakan link Google Script Bos)
 import { fetchCloudData, saveOrderToSheet, updateQrisCloud, updateShiftCloud } from './db';
 
 export default function App() {
@@ -32,20 +31,29 @@ export default function App() {
   useEffect(() => { initApp(); }, []);
 
   // ==========================================
-  // FUNGSI CETAK STANDARD THERMAL (58mm)
+  // FIX PRINT UNTUK TABLET (HUAWEI/ANDROID)
   // ==========================================
   const handleCetakStruk = () => {
     if (!lastOrder) return;
-    const printWindow = window.open('', '_blank', 'width=300,height=600');
+
+    // Hapus iframe lama jika ada
+    const oldFrame = document.getElementById('print-frame');
+    if (oldFrame) oldFrame.remove();
+
+    // Buat iframe baru (hidden)
+    const iframe = document.createElement('iframe');
+    iframe.id = 'print-frame';
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
     const htmlStruk = `
       <html>
         <head>
-          <title>Struk Soto Ra-Me23</title>
           <style>
             @page { margin: 0; size: 58mm auto; }
             body { 
               font-family: 'Courier New', Courier, monospace; 
-              width: 48mm; padding: 2mm; margin: 0; color: black; font-size: 10pt; line-height: 1.2;
+              width: 48mm; padding: 4mm 2mm; margin: 0; color: black; font-size: 10pt; line-height: 1.2;
             }
             .text-center { text-align: center; }
             .line { border-bottom: 1px dashed black; margin: 5px 0; }
@@ -59,8 +67,7 @@ export default function App() {
             <div class="header">SOTO RA-ME23</div>
             <div class="address">
               Jl. Watumujur II, Ketawanggede,<br>
-              Kec. Lowokwaru, Kota Malang,<br>
-              Jawa Timur 65141
+              Kec. Lowokwaru, Kota Malang
             </div>
             <div style="font-size: 12pt; font-weight:bold; margin: 5px 0;">ANTREAN: #${lastOrder.no}</div>
             <div style="font-size: 7pt;">${lastOrder.date}</div>
@@ -74,36 +81,41 @@ export default function App() {
           `).join('')}
           <div class="line"></div>
           <div class="flex" style="font-weight:bold; font-size: 11pt;"><span>TOTAL</span><span>Rp ${lastOrder.total.toLocaleString()}</span></div>
-          <div class="flex" style="font-size: 8pt;"><span>Bayar</span><span>${lastOrder.method}</span></div>
           <div class="line"></div>
           <div class="text-center" style="font-size: 8pt; margin-top: 10px;">
             KASIR: ${lastOrder.kasir.toUpperCase()}<br>-- TERIMA KASIH --
           </div>
-          <script>
-            window.onload = function() { window.print(); setTimeout(() => window.close(), 500); };
-          </script>
         </body>
       </html>
     `;
-    printWindow.document.write(htmlStruk);
-    printWindow.document.close();
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(htmlStruk);
+    doc.close();
+
+    // Kasih jeda biar MatePad gak "Preparing Preview" terus
+    setTimeout(() => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    }, 800);
   };
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
-    if (config.shiftStatus === 'CLOSED' && currentUser.role !== 'admin') { alert("SHIFT TUTUP!"); return; }
-    if (paymentMethod === 'QRIS' && !showQRModal) { setShowQRModal(true); return; }
+    if (config.shiftStatus === 'CLOSED' && currentUser.role !== 'admin') { 
+      alert("SHIFT TUTUP!"); return; 
+    }
+    if (paymentMethod === 'QRIS' && !showQRModal) { 
+      setShowQRModal(true); return; 
+    }
     
     setIsSyncing(true);
     try {
       const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
-      
-      // KIRIM KE SHEET & AMBIL RESPON (Nomor Antrean dari Cloud)
       const response = await saveOrderToSheet(cart, total, paymentMethod, currentUser.username);
       
-      // Gunakan nomor antrean yang dikembalikan oleh Google Script
-      // Jika script Bos belum mengembalikan nomor, dia akan pakai angka random sementara agar tidak error
-      const queueNo = response && response.queueNumber ? response.queueNumber : Math.floor(Math.random() * 100);
+      const queueNo = response && response.queueNumber ? response.queueNumber : "??";
 
       const orderData = {
         no: queueNo,
@@ -118,7 +130,7 @@ export default function App() {
       setCart([]); 
       setShowQRModal(false);
       setShowReceipt(true);
-      await initApp(); // Refresh stok
+      await initApp();
     } catch (e) { 
       alert("GAGAL KONEKSI CLOUD!"); 
     } finally { 
@@ -126,11 +138,11 @@ export default function App() {
     }
   };
 
-  if (isLoading) return <div className="h-screen flex items-center justify-center font-black text-amber-500 animate-pulse">SOTO RA-ME23 CLOUD...</div>;
+  if (isLoading) return <div className="h-screen flex items-center justify-center font-black text-amber-500 animate-pulse">MEMUAT SOTO RA-ME23...</div>;
   if (!currentUser) return <LoginScreen users={users} onLogin={(u) => setCurrentUser(u)} onRefresh={initApp} />;
 
   return (
-    <div className="h-screen bg-slate-50 flex overflow-hidden font-sans select-none">
+    <div className="h-screen bg-slate-50 flex overflow-hidden font-sans select-none text-slate-900">
       
       {/* MODAL STRUK DIGITAL */}
       {showReceipt && lastOrder && (
@@ -140,13 +152,13 @@ export default function App() {
               <h2 className="text-2xl font-black italic">Soto Ra-Me23</h2>
               <p className="text-[10px] font-bold text-slate-400 uppercase">Jl. Watumujur II, Malang</p>
               <div className="mt-4 bg-amber-50 py-3 rounded-2xl border border-amber-100">
-                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Antrean Cloud</p>
+                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Nomor Antrean</p>
                 <p className="text-5xl font-black text-amber-600">#{lastOrder.no}</p>
               </div>
             </div>
             
             <div className="p-8 space-y-4 font-mono text-[11px]">
-              <div className="flex justify-between font-bold text-slate-500 uppercase">
+              <div className="flex justify-between font-bold text-slate-400 uppercase">
                 <span>{lastOrder.date}</span>
                 <span>{lastOrder.kasir}</span>
               </div>
@@ -159,8 +171,8 @@ export default function App() {
                 ))}
               </div>
               <div className="flex justify-between items-center pt-2">
-                <span className="font-black uppercase text-[10px]">Total</span>
-                <span className="text-2xl font-black italic text-slate-900">Rp {lastOrder.total.toLocaleString()}</span>
+                <span className="font-black uppercase text-[10px]">Total Tagihan</span>
+                <span className="text-2xl font-black italic">Rp {lastOrder.total.toLocaleString()}</span>
               </div>
             </div>
 
@@ -184,14 +196,14 @@ export default function App() {
               <span>Pembayaran QRIS</span>
               <button onClick={() => setShowQRModal(false)}><X size={20}/></button>
             </div>
-            <img src={config.qris} className="w-full aspect-square object-contain mb-4 border rounded-2xl p-2 bg-white" alt="QRIS" />
+            <img src={config.qris} className="w-full aspect-square object-contain mb-4 border rounded-2xl p-2 bg-white shadow-inner" alt="QRIS" />
             <p className="text-3xl font-black italic mb-6">Rp {cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}</p>
-            <button onClick={handleCheckout} className="w-full py-5 bg-green-600 text-white rounded-2xl font-black uppercase shadow-lg active:scale-95">Konfirmasi Bayar</button>
+            <button onClick={handleCheckout} className="w-full py-5 bg-green-600 text-white rounded-2xl font-black uppercase shadow-lg active:scale-95 transition-all">Konfirmasi Bayar</button>
           </div>
         </div>
       )}
 
-      {/* SIDEBAR */}
+      {/* SIDEBAR NAVIGATION */}
       <nav className="w-20 bg-white border-r flex flex-col items-center py-8 justify-between shadow-sm">
         <div className="flex flex-col gap-8">
           <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg font-black italic text-xl shadow-amber-100">R</div>
@@ -208,10 +220,10 @@ export default function App() {
           <AdminPanel config={config} onRefresh={initApp} />
         ) : (
           <>
-            <main className="flex-1 p-8 overflow-y-auto">
+            <main className="flex-1 p-8 overflow-y-auto scrollbar-hide">
               <div className="flex justify-between items-center mb-8">
                 <h1 className="text-2xl font-black uppercase italic tracking-tighter decoration-amber-500 decoration-4 underline underline-offset-4 text-slate-800">Kasir: {currentUser.username}</h1>
-                <button onClick={initApp} className="p-2 text-slate-300 hover:text-amber-500"><RefreshCw size={20}/></button>
+                <button onClick={initApp} className="p-2 text-slate-300 hover:text-amber-500 active:rotate-180 transition-all duration-500"><RefreshCw size={20}/></button>
               </div>
               <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
                 {['Semua', 'Makanan', 'Minuman', 'Jajanan'].map(cat => (
@@ -234,12 +246,14 @@ export default function App() {
               </div>
             </main>
             <aside className="w-[350px] bg-white border-l p-8 flex flex-col shadow-2xl">
-              <h2 className="text-[10px] font-black uppercase text-slate-400 mb-6 tracking-widest text-center flex items-center justify-center gap-2"><ShoppingBag size={14}/> Keranjang</h2>
+              <h2 className="text-[10px] font-black uppercase text-slate-400 mb-6 tracking-widest text-center flex items-center justify-center gap-2"><ShoppingBag size={14}/> Keranjang Belanja</h2>
               <div className="flex-1 overflow-y-auto space-y-4 mb-6 scrollbar-hide">
-                {cart.map(item => (
+                {cart.length === 0 ? (
+                   <div className="h-full flex flex-col items-center justify-center text-slate-200 italic font-black text-[10px] uppercase">Belum ada menu</div>
+                ) : cart.map(item => (
                   <div key={item.id} className="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100">
-                    <div className="flex-1 min-w-0 mr-2"><p className="font-bold text-[10px] uppercase truncate">{item.name}</p><p className="text-[11px] font-black text-amber-600">Rp {(item.price * item.quantity).toLocaleString()}</p></div>
-                    <div className="flex items-center gap-2"><span className="font-black text-xs px-2 py-1 bg-white rounded-lg border">{item.quantity}x</span><button onClick={() => setCart(cart.filter(x => x.id !== item.id))} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button></div>
+                    <div className="flex-1 min-w-0 mr-2"><p className="font-bold text-[10px] uppercase truncate text-slate-700">{item.name}</p><p className="text-[11px] font-black text-amber-600">Rp {(item.price * item.quantity).toLocaleString()}</p></div>
+                    <div className="flex items-center gap-2"><span className="font-black text-xs px-2 py-1 bg-white rounded-lg border text-slate-500">{item.quantity}x</span><button onClick={() => setCart(cart.filter(x => x.id !== item.id))} className="text-red-300 hover:text-red-500 transition-colors"><Trash2 size={16}/></button></div>
                   </div>
                 ))}
               </div>
@@ -272,18 +286,20 @@ function AdminPanel({ config, onRefresh }) {
     reader.readAsDataURL(file);
   };
   return (
-    <main className="flex-1 p-10 bg-white overflow-y-auto">
+    <main className="flex-1 p-10 bg-white overflow-y-auto scrollbar-hide">
       <h1 className="text-4xl font-black mb-12 text-center uppercase tracking-tighter underline decoration-blue-500 decoration-8 italic underline-offset-8">Admin Control</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
         <button onClick={async () => { await updateShiftCloud(config.shiftStatus === 'OPEN' ? 'CLOSED' : 'OPEN'); onRefresh(); }} className={`p-10 border-4 border-dashed rounded-[3.5rem] flex flex-col items-center gap-4 transition-all active:scale-95 ${config.shiftStatus === 'OPEN' ? 'border-red-100 bg-red-50/10' : 'border-green-100 bg-green-50/10'}`}>
           <Settings size={40} className={config.shiftStatus === 'OPEN' ? "text-red-500" : "text-green-500"} />
-          <span className="font-black text-xs uppercase tracking-widest">Shift Status: {config.shiftStatus}</span>
+          <span className="font-black text-xs uppercase tracking-widest text-slate-700">Shift: {config.shiftStatus}</span>
         </button>
-        <div className="p-10 border-4 border-dashed border-slate-100 rounded-[3.5rem] flex flex-col items-center gap-4 bg-slate-50 text-center text-slate-400 font-black text-[10px] uppercase tracking-widest">
+        <div className="p-10 border-4 border-dashed border-slate-100 rounded-[3.5rem] flex flex-col items-center gap-4 bg-slate-50 text-center">
           <Camera size={40} className="text-blue-500" />
           <div className="flex gap-2 w-full">
-            <label className="flex-1 py-4 bg-blue-500 text-white rounded-2xl cursor-pointer shadow-lg shadow-blue-100 font-black">{isUpdating ? "..." : "UPLOAD QRIS"}<input type="file" className="hidden" onChange={handleFileUpload} /></label>
-            <button onClick={() => { const u = prompt("Link QRIS:"); if(u) updateQrisCloud(u).then(onRefresh); }} className="flex-1 py-4 bg-white border-2 border-slate-200 rounded-2xl hover:bg-slate-100 font-black">LINK</button>
+            <label className="flex-1 py-4 bg-blue-500 text-white rounded-2xl cursor-pointer shadow-lg shadow-blue-100 font-black text-[10px] uppercase">
+                {isUpdating ? "..." : "UPLOAD QRIS"}<input type="file" className="hidden" onChange={handleFileUpload} />
+            </label>
+            <button onClick={() => { const u = prompt("Link QRIS:"); if(u) updateQrisCloud(u).then(onRefresh); }} className="flex-1 py-4 bg-white border-2 border-slate-200 rounded-2xl hover:bg-slate-100 font-black text-[10px] uppercase">LINK</button>
           </div>
         </div>
       </div>
@@ -297,12 +313,12 @@ function LoginScreen({ users, onLogin, onRefresh }) {
     <div className="h-screen w-screen flex items-center justify-center bg-slate-100 p-4">
       <div className="bg-white p-14 rounded-[4rem] shadow-2xl w-full max-w-sm text-center border-b-[12px] border-amber-500">
         <div className="w-20 h-20 bg-amber-500 rounded-[1.5rem] flex items-center justify-center text-white mx-auto mb-10 font-black text-4xl italic shadow-xl shadow-amber-100">R</div>
-        <h2 className="text-3xl font-black mb-10 uppercase italic tracking-tighter">Soto Ra-Me23</h2>
+        <h2 className="text-3xl font-black mb-10 uppercase italic tracking-tighter text-slate-800">Soto Ra-Me23</h2>
         <form onSubmit={(e) => { e.preventDefault(); const u = users.find(u => String(u.pin) === String(pin)); if(u) onLogin(u); else alert("PIN SALAH!"); setPin(''); }} className="space-y-5">
-          <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} className="w-full bg-slate-50 py-6 rounded-3xl text-center text-4xl font-black outline-none border-4 border-transparent focus:border-amber-500 transition-all placeholder-slate-200" placeholder="••••" autoFocus />
+          <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} className="w-full bg-slate-50 py-6 rounded-3xl text-center text-4xl font-black outline-none border-4 border-transparent focus:border-amber-500 transition-all placeholder-slate-200 text-slate-800" placeholder="••••" autoFocus />
           <button type="submit" className="w-full py-5 bg-slate-900 text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl active:scale-95 transition-all shadow-slate-200">Masuk Kasir</button>
         </form>
-        <button onClick={onRefresh} className="mt-10 text-slate-300 hover:text-amber-500"><RefreshCw size={22} className="mx-auto" /></button>
+        <button onClick={onRefresh} className="mt-10 text-slate-300 hover:text-amber-500 transition-colors"><RefreshCw size={22} className="mx-auto" /></button>
       </div>
     </div>
   );
