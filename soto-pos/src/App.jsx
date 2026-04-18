@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LayoutGrid, Settings, Trash2, LogOut, Wallet, Banknote, X, RefreshCw, Camera, ShoppingBag, Printer } from 'lucide-react';
 import { fetchCloudData, saveOrderToSheet, updateQrisCloud, updateShiftCloud } from './db';
 
-// LOAD JSPDF VIA CDN (WAJIB UNTUK MOBILE/TABLET)
 const loadJsPDF = () => {
   return new Promise((resolve) => {
     if (window.jspdf) return resolve(window.jspdf);
@@ -27,9 +26,10 @@ export default function App() {
   const [lastOrder, setLastOrder] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState('Semua');
-
-  // STATE BARU: INPUT ANTREAN MANUAL
-  const [manualQueue, setManualQueue] = useState("");
+  
+  // State Input No. Pesanan Manual
+  const [orderNumber, setOrderNumber] = useState("");
+  const inputRef = useRef(null);
 
   const initApp = async () => {
     setIsLoading(true);
@@ -45,31 +45,36 @@ export default function App() {
 
   useEffect(() => { initApp(); }, []);
 
-  // FUNGSI CETAK PDF 58mm
   const handleCetakPDF = () => {
     if (!lastOrder) return;
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({
       unit: "mm",
-      format: [58, 80 + (lastOrder.items.length * 7)]
+      format: [58, 85 + (lastOrder.items.length * 7)]
     });
 
     doc.setFont("courier", "bold");
     doc.setFontSize(14);
     doc.text("SOTO RA-ME23", 29, 10, { align: "center" });
+    
     doc.setFontSize(7);
     doc.setFont("courier", "normal");
     doc.text("Jl. Watumujur II, Ketawanggede", 29, 14, { align: "center" });
     doc.text("Lowokwaru, Kota Malang", 29, 17, { align: "center" });
-    doc.setFontSize(16);
+
+    doc.text("------------------------------------------", 29, 21, { align: "center" });
+    doc.setFontSize(10);
+    doc.text("NO. PESANAN", 29, 25, { align: "center" });
+    doc.setFontSize(22);
     doc.setFont("courier", "bold");
-    doc.text(`ANTREAN: #${lastOrder.no}`, 29, 26, { align: "center" });
+    doc.text(`${lastOrder.no}`, 29, 34, { align: "center" });
+    
     doc.setFontSize(7);
     doc.setFont("courier", "normal");
-    doc.text(lastOrder.date, 29, 31, { align: "center" });
-    doc.text("------------------------------------------", 29, 35, { align: "center" });
+    doc.text(lastOrder.date, 29, 39, { align: "center" });
+    doc.text("------------------------------------------", 29, 43, { align: "center" });
 
-    let yPos = 40;
+    let yPos = 48;
     doc.setFontSize(9);
     lastOrder.items.forEach((item) => {
       doc.text(`${item.name.substring(0, 15)} x${item.quantity}`, 5, yPos);
@@ -82,7 +87,9 @@ export default function App() {
     doc.setFont("courier", "bold");
     doc.text("TOTAL", 5, yPos + 9);
     doc.text(`Rp ${lastOrder.total.toLocaleString()}`, 53, yPos + 9, { align: "right" });
+    
     doc.setFontSize(8);
+    doc.setFont("courier", "normal");
     doc.text(`KASIR: ${lastOrder.kasir.toUpperCase()}`, 29, yPos + 17, { align: "center" });
     doc.text("-- TERIMA KASIH --", 29, yPos + 22, { align: "center" });
 
@@ -90,14 +97,13 @@ export default function App() {
   };
 
   const handleCheckout = async () => {
-    if (cart.length === 0) return;
-    if (!manualQueue) return alert("Isi nomor antrean dulu!");
+    if (cart.length === 0 || !orderNumber) return;
 
     setIsSyncing(true);
     try {
       const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
       const orderData = {
-        no: manualQueue,
+        no: orderNumber,
         date: new Date().toLocaleString('id-ID'),
         items: [...cart],
         total: total,
@@ -108,32 +114,33 @@ export default function App() {
       await saveOrderToSheet(cart, total, paymentMethod, currentUser.username);
       setLastOrder(orderData);
       setCart([]); 
-      setManualQueue(""); // Reset nomor setelah bayar
+      setOrderNumber(""); 
       setShowQRModal(false);
       setShowReceipt(true);
     } catch (e) { alert("Error simpan data!"); } finally { setIsSyncing(false); }
   };
 
-  if (isLoading) return <div className="h-screen flex items-center justify-center font-black text-amber-500 animate-pulse uppercase tracking-widest">Memuat Soto Ra-Me23...</div>;
+  if (isLoading) return <div className="h-screen flex items-center justify-center font-black text-amber-500 animate-pulse uppercase tracking-[0.3em]">SOTO RA-ME23</div>;
   if (!currentUser) return <LoginScreen users={users} onLogin={(u) => setCurrentUser(u)} onRefresh={initApp} />;
 
   return (
-    <div className="h-screen bg-slate-100 flex overflow-hidden font-sans text-slate-900">
+    <div className="h-screen bg-slate-50 flex overflow-hidden font-sans text-slate-900">
       
       {/* MODAL STRUK */}
       {showReceipt && lastOrder && (
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-[3rem] shadow-2xl overflow-hidden border-t-[12px] border-amber-500">
+          <div className="bg-white w-full max-w-sm rounded-[3rem] shadow-2xl overflow-hidden border-t-[12px] border-amber-600">
             <div className="p-8 text-center border-b border-dashed">
-              <h2 className="text-2xl font-black italic">Soto Ra-Me23</h2>
-              <div className="mt-4 bg-amber-50 py-4 rounded-3xl border border-amber-200">
-                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Nomor Antrean</p>
-                <p className="text-6xl font-black text-amber-600">#{lastOrder.no}</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Transaksi Berhasil</p>
+              <h2 className="text-xl font-black italic mb-4">Soto Ra-Me23</h2>
+              <div className="bg-slate-50 py-6 rounded-3xl border-2 border-slate-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">No. Pesanan</p>
+                <p className="text-6xl font-black text-slate-900 tracking-tighter">#{lastOrder.no}</p>
               </div>
             </div>
-            <div className="p-6 bg-slate-50 grid grid-cols-2 gap-3">
-              <button onClick={handleCetakPDF} className="py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xl"><Printer size={18}/> Cetak PDF</button>
-              <button onClick={() => setShowReceipt(false)} className="py-5 bg-white border-2 border-slate-200 text-slate-400 rounded-2xl font-black uppercase text-[10px] active:scale-95">Tutup</button>
+            <div className="p-6 grid grid-cols-2 gap-3">
+              <button onClick={handleCetakPDF} className="py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 active:scale-95 shadow-lg"><Printer size={18}/> Cetak Struk</button>
+              <button onClick={() => setShowReceipt(false)} className="py-5 bg-white border-2 border-slate-200 text-slate-400 rounded-2xl font-black uppercase text-[10px] active:scale-95">Selesai</button>
             </div>
           </div>
         </div>
@@ -141,11 +148,12 @@ export default function App() {
 
       {/* MODAL QRIS */}
       {showQRModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-[3rem] p-8 w-full max-w-sm text-center shadow-2xl">
-            <img src={config.qris} className="w-full aspect-square object-contain mb-4 border rounded-3xl p-2 bg-white" alt="QRIS" />
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-[3rem] p-8 w-full max-w-sm text-center shadow-2xl border-4 border-amber-500">
+            <p className="text-[10px] font-black uppercase text-amber-600 mb-4 tracking-widest">Scan QRIS di Bawah</p>
+            <img src={config.qris} className="w-full aspect-square object-contain mb-4 border rounded-3xl p-2 bg-white" />
             <p className="text-3xl font-black italic mb-6">Rp {cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}</p>
-            <button onClick={handleCheckout} className="w-full py-5 bg-green-600 text-white rounded-2xl font-black uppercase shadow-lg active:scale-95">Selesai Bayar</button>
+            <button onClick={handleCheckout} className="w-full py-5 bg-green-600 text-white rounded-2xl font-black uppercase shadow-lg active:scale-95">Sudah Bayar</button>
           </div>
         </div>
       )}
@@ -166,7 +174,10 @@ export default function App() {
         ) : (
           <>
             <main className="flex-1 p-8 overflow-y-auto scrollbar-hide">
-              <h1 className="text-2xl font-black uppercase italic mb-8 border-l-8 border-amber-500 pl-4">Kasir: {currentUser.username}</h1>
+              <div className="flex justify-between items-center mb-8">
+                <h1 className="text-2xl font-black uppercase italic border-l-8 border-amber-500 pl-4">Kasir: {currentUser.username}</h1>
+                <button onClick={initApp} className="p-2 text-slate-300 hover:text-amber-500 transition-all active:rotate-180"><RefreshCw size={22}/></button>
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {menu.map(m => (
                   <div key={m.id} onClick={() => {
@@ -174,43 +185,55 @@ export default function App() {
                     setCart(inCart ? cart.map(x => x.id === m.id ? {...x, quantity: x.quantity + 1} : x) : [...cart, {...m, quantity: 1}]);
                   }} className="bg-white p-6 rounded-[2.5rem] border hover:shadow-xl cursor-pointer active:scale-95 transition-all text-center shadow-sm">
                     <div className="text-5xl mb-3">{m.img || '🍲'}</div>
-                    <p className="font-bold text-[10px] uppercase truncate text-slate-500">{m.name}</p>
+                    <p className="font-bold text-[10px] uppercase text-slate-500 truncate">{m.name}</p>
                     <p className="text-amber-600 font-black text-sm">Rp {Number(m.price).toLocaleString()}</p>
                   </div>
                 ))}
               </div>
             </main>
             
-            <aside className="w-[380px] bg-white border-l p-8 flex flex-col shadow-2xl">
-              <h2 className="text-[10px] font-black uppercase text-slate-400 mb-6 tracking-[0.2em] text-center">Keranjang Belanja</h2>
-              <div className="flex-1 overflow-y-auto space-y-4 mb-6 scrollbar-hide font-mono">
-                {cart.map(item => (
-                  <div key={item.id} className="bg-slate-50 p-5 rounded-3xl flex justify-between items-center border border-slate-100 shadow-sm">
+            <aside className="w-[380px] bg-white border-l p-8 flex flex-col shadow-2xl relative">
+              <h2 className="text-[10px] font-black uppercase text-slate-300 mb-6 tracking-widest text-center italic">Checkout Panel</h2>
+              
+              <div className="flex-1 overflow-y-auto space-y-4 mb-6 scrollbar-hide">
+                {cart.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-200">
+                    <ShoppingBag size={48} className="mb-2 opacity-20" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Keranjang Kosong</p>
+                  </div>
+                ) : cart.map(item => (
+                  <div key={item.id} className="bg-slate-50 p-5 rounded-3xl flex justify-between items-center border border-slate-100">
                     <div className="flex-1 min-w-0 mr-2"><p className="font-black text-[11px] uppercase truncate">{item.name}</p><p className="text-xs font-black text-amber-600">Rp {(item.price * item.quantity).toLocaleString()}</p></div>
                     <div className="flex items-center gap-2"><span className="font-black text-xs px-3 py-1 bg-white rounded-xl border">{item.quantity}x</span><button onClick={() => setCart(cart.filter(x => x.id !== item.id))} className="text-red-300 hover:text-red-500"><Trash2 size={18}/></button></div>
                   </div>
                 ))}
               </div>
 
-              {/* INPUT ANTREAN MANUAL */}
-              <div className="mb-6 bg-amber-50 p-4 rounded-3xl border-2 border-dashed border-amber-200">
-                <p className="text-[10px] font-black uppercase text-amber-600 mb-2 text-center tracking-widest italic">Input Nomor Antrean</p>
+              {/* INPUT NOMOR PESANAN MANUAL */}
+              <div className="mb-6 p-5 bg-slate-900 rounded-[2.5rem] shadow-xl shadow-slate-200">
+                <p className="text-[9px] font-black uppercase text-slate-400 mb-3 text-center tracking-[0.2em]">Input No. Pesanan</p>
                 <input 
                   type="number" 
-                  value={manualQueue} 
-                  onChange={(e) => setManualQueue(e.target.value)} 
-                  className="w-full py-4 rounded-2xl text-center text-4xl font-black outline-none border-2 border-transparent focus:border-amber-500 text-slate-800 shadow-inner" 
-                  placeholder="00" 
+                  ref={inputRef}
+                  value={orderNumber} 
+                  onChange={(e) => setOrderNumber(e.target.value)} 
+                  className="w-full bg-slate-800 py-4 rounded-2xl text-center text-4xl font-black text-white outline-none border-2 border-transparent focus:border-amber-500 transition-all" 
+                  placeholder="---" 
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2 mb-6">
                 {['Tunai', 'QRIS'].map(m => (
-                  <button key={m} onClick={() => setPaymentMethod(m)} className={`py-5 rounded-2xl border-2 font-black text-[10px] uppercase transition-all ${paymentMethod === m ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-300 border-slate-100'}`}>{m}</button>
+                  <button key={m} onClick={() => setPaymentMethod(m)} className={`py-5 rounded-2xl border-2 font-black text-[10px] uppercase transition-all ${paymentMethod === m ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-100' : 'bg-white text-slate-300 border-slate-100'}`}>{m}</button>
                 ))}
               </div>
-              <button onClick={() => paymentMethod === 'QRIS' ? setShowQRModal(true) : handleCheckout()} disabled={isSyncing || cart.length === 0} className="w-full py-6 bg-amber-500 text-white rounded-[2rem] font-black text-sm shadow-xl active:scale-95 transition-all uppercase tracking-widest">
-                {isSyncing ? 'SINKRON...' : `PROSES BAYAR`}
+
+              <button 
+                onClick={() => paymentMethod === 'QRIS' ? setShowQRModal(true) : handleCheckout()} 
+                disabled={isSyncing || cart.length === 0 || !orderNumber} 
+                className={`w-full py-6 rounded-[2rem] font-black text-sm shadow-xl transition-all uppercase tracking-widest ${cart.length > 0 && orderNumber ? 'bg-slate-900 text-white active:scale-95' : 'bg-slate-100 text-slate-300 cursor-not-allowed'}`}
+              >
+                {isSyncing ? 'SINKRON DATA...' : `BAYAR Rp ${cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}`}
               </button>
             </aside>
           </>
@@ -222,11 +245,11 @@ export default function App() {
 
 function AdminPanel({ config, onRefresh }) {
   return (
-    <main className="flex-1 p-10 bg-white">
+    <main className="flex-1 p-10 bg-white overflow-y-auto">
       <h1 className="text-4xl font-black mb-12 text-center uppercase italic tracking-tighter">Admin Panel</h1>
       <div className="max-w-md mx-auto space-y-6">
-        <button onClick={async () => { await updateShiftCloud(config.shiftStatus === 'OPEN' ? 'CLOSED' : 'OPEN'); onRefresh(); }} className="w-full p-10 border-4 border-dashed border-slate-200 rounded-[3.5rem] font-black uppercase text-slate-500 active:bg-slate-50 transition-all">Shift Status: {config.shiftStatus}</button>
-        <p className="text-center text-slate-300 text-[10px] font-bold uppercase italic tracking-widest">Sistem Antrean Manual Aktif</p>
+        <button onClick={async () => { await updateShiftCloud(config.shiftStatus === 'OPEN' ? 'CLOSED' : 'OPEN'); onRefresh(); }} className="w-full p-10 border-4 border-dashed border-slate-200 rounded-[3.5rem] font-black uppercase text-slate-500 active:bg-slate-50 transition-all shadow-sm">Shift Status: {config.shiftStatus}</button>
+        <p className="text-center text-slate-300 text-[10px] font-bold uppercase italic tracking-widest">Sistem Nomor Pesanan Manual Aktif</p>
       </div>
     </main>
   );
@@ -244,1256 +267,10 @@ function LoginScreen({ users, onLogin, onRefresh }) {
       <form onSubmit={handleLogin} className="bg-white p-14 rounded-[4rem] shadow-2xl w-full max-w-sm text-center border-b-[12px] border-amber-500">
         <div className="w-20 h-20 bg-amber-500 rounded-[1.5rem] flex items-center justify-center text-white mx-auto mb-10 font-black text-4xl italic shadow-xl shadow-amber-100">R</div>
         <h2 className="text-3xl font-black mb-10 uppercase italic text-slate-800">Soto Ra-Me23</h2>
-        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} className="w-full bg-slate-50 py-6 rounded-3xl text-center text-5xl font-black outline-none border-4 border-transparent focus:border-amber-500 transition-all mb-6 placeholder-slate-200" placeholder="••••" autoFocus />
+        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} className="w-full bg-slate-50 py-6 rounded-3xl text-center text-5xl font-black outline-none border-4 border-transparent focus:border-amber-500 transition-all mb-6 placeholder-slate-100" placeholder="••••" autoFocus />
         <button type="submit" className="w-full py-6 bg-slate-900 text-white rounded-3xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all">Masuk</button>
         <button type="button" onClick={onRefresh} className="mt-10 text-slate-300 hover:text-amber-500"><RefreshCw size={24} className="mx-auto" /></button>
       </form>
-    </div>
-  );
-  }    const cloud = await fetchCloudData();
-    if (cloud) {
-      setMenu(cloud.menu || []);
-      setUsers(cloud.users || []);
-      setConfig({ qris: cloud.qris, shiftStatus: cloud.shiftStatus });
-    }
-    setIsLoading(false);
-  };
-
-  useEffect(() => { initApp(); }, []);
-
-  const handleCetakPDF = () => {
-    if (!lastOrder) return;
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({
-      unit: "mm",
-      format: [58, 80 + (lastOrder.items.length * 7)]
-    });
-
-    doc.setFont("courier", "bold");
-    doc.setFontSize(14);
-    doc.text("SOTO RA-ME23", 29, 10, { align: "center" });
-
-    doc.setFontSize(7);
-    doc.setFont("courier", "normal");
-    doc.text("Jl. Watumujur II, Ketawanggede", 29, 14, { align: "center" });
-    doc.text("Lowokwaru, Kota Malang", 29, 17, { align: "center" });
-
-    doc.setFontSize(16);
-    doc.setFont("courier", "bold");
-    doc.text(`ANTREAN: #${lastOrder.no}`, 29, 26, { align: "center" });
-    
-    doc.setFontSize(7);
-    doc.setFont("courier", "normal");
-    doc.text(lastOrder.date, 29, 31, { align: "center" });
-    doc.text("------------------------------------------", 29, 35, { align: "center" });
-
-    let yPos = 40;
-    doc.setFontSize(9);
-    lastOrder.items.forEach((item) => {
-      doc.text(`${item.name.substring(0, 15)} x${item.quantity}`, 5, yPos);
-      doc.text((item.price * item.quantity).toLocaleString(), 53, yPos, { align: "right" });
-      yPos += 6;
-    });
-
-    doc.text("------------------------------------------", 29, yPos + 2, { align: "center" });
-    doc.setFontSize(11);
-    doc.setFont("courier", "bold");
-    doc.text("TOTAL", 5, yPos + 9);
-    doc.text(`Rp ${lastOrder.total.toLocaleString()}`, 53, yPos + 9, { align: "right" });
-
-    doc.setFontSize(8);
-    doc.setFont("courier", "normal");
-    doc.text(`KASIR: ${lastOrder.kasir.toUpperCase()}`, 29, yPos + 17, { align: "center" });
-    doc.text("-- TERIMA KASIH --", 29, yPos + 22, { align: "center" });
-
-    window.open(doc.output("bloburl"), "_blank");
-  };
-
-  const handleCheckout = async () => {
-    if (cart.length === 0) return;
-    if (!manualQueueInput) {
-      alert("Isi nomor antrean dulu, Bos!");
-      return;
-    }
-
-    setIsSyncing(true);
-    try {
-      const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
-      
-      const orderData = {
-        no: manualQueueInput, // Pakai input manual Bos
-        date: new Date().toLocaleString('id-ID'),
-        items: [...cart],
-        total: total,
-        method: paymentMethod,
-        kasir: currentUser.username
-      };
-      
-      await saveOrderToSheet(cart, total, paymentMethod, currentUser.username);
-      
-      setLastOrder(orderData);
-      setCart([]); 
-      setManualQueueInput(""); // Reset input setelah beres
-      setShowQRModal(false);
-      setShowReceipt(true);
-    } catch (e) { 
-      alert("Gagal simpan ke cloud!"); 
-    } finally { 
-      setIsSyncing(false); 
-    }
-  };
-
-  if (isLoading) return <div className="h-screen flex items-center justify-center font-black text-amber-500 animate-pulse">SOTO RA-ME23...</div>;
-  if (!currentUser) return <LoginScreen users={users} onLogin={(u) => setCurrentUser(u)} onRefresh={initApp} />;
-
-  return (
-    <div className="h-screen bg-slate-100 flex overflow-hidden font-sans text-slate-900">
-      
-      {/* MODAL STRUK */}
-      {showReceipt && lastOrder && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-[3rem] shadow-2xl overflow-hidden border-t-[12px] border-amber-500">
-            <div className="p-8 text-center">
-              <h2 className="text-2xl font-black italic">Soto Ra-Me23</h2>
-              <div className="mt-4 bg-amber-50 py-4 rounded-3xl border border-amber-200">
-                <p className="text-[10px] font-black text-amber-600 uppercase">Antrean</p>
-                <p className="text-6xl font-black text-amber-600">#{lastOrder.no}</p>
-              </div>
-            </div>
-            <div className="p-6 bg-slate-50 grid grid-cols-2 gap-3">
-              <button onClick={handleCetakPDF} className="py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 active:scale-95 transition-all"><Printer size={18}/> Cetak PDF</button>
-              <button onClick={() => setShowReceipt(false)} className="py-5 bg-white border-2 border-slate-200 text-slate-400 rounded-2xl font-black uppercase text-[10px] active:scale-95">Tutup</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL QRIS */}
-      {showQRModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[3rem] p-8 w-full max-w-sm text-center shadow-2xl">
-            <img src={config.qris} className="w-full aspect-square object-contain mb-4 border rounded-3xl p-2" />
-            <p className="text-3xl font-black italic mb-6">Rp {cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}</p>
-            <button onClick={handleCheckout} className="w-full py-5 bg-green-600 text-white rounded-2xl font-black uppercase shadow-lg active:scale-95">Konfirmasi Bayar</button>
-          </div>
-        </div>
-      )}
-
-      {/* SIDEBAR */}
-      <nav className="w-20 bg-white border-r flex flex-col items-center py-8 justify-between shadow-sm">
-        <div className="flex flex-col gap-8">
-          <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg font-black italic text-xl">R</div>
-          <button onClick={() => setView('pos')} className={`p-3 rounded-xl ${view === 'pos' ? 'bg-amber-50 text-amber-600' : 'text-slate-300'}`}><LayoutGrid size={24}/></button>
-          {currentUser.role === 'admin' && <button onClick={() => setView('admin')} className={`p-3 rounded-xl ${view === 'admin' ? 'bg-slate-100 text-slate-900' : 'text-slate-300'}`}><Settings size={24}/></button>}
-        </div>
-        <button onClick={() => setCurrentUser(null)} className="text-slate-300 hover:text-red-500 transition-colors"><LogOut size={24}/></button>
-      </nav>
-
-      <div className="flex-1 flex overflow-hidden">
-        {view === 'admin' ? (
-          <AdminPanel config={config} onRefresh={initApp} />
-        ) : (
-          <>
-            <main className="flex-1 p-8 overflow-y-auto">
-              <h1 className="text-2xl font-black uppercase italic mb-8 border-l-8 border-amber-500 pl-4 text-slate-700">Kasir: {currentUser.username}</h1>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {menu.map(m => (
-                  <div key={m.id} onClick={() => {
-                    const inCart = cart.find(x => x.id === m.id);
-                    setCart(inCart ? cart.map(x => x.id === m.id ? {...x, quantity: x.quantity + 1} : x) : [...cart, {...m, quantity: 1}]);
-                  }} className="bg-white p-6 rounded-[2.5rem] border hover:shadow-xl cursor-pointer active:scale-95 transition-all text-center">
-                    <div className="text-5xl mb-3">{m.img || '🍲'}</div>
-                    <p className="font-bold text-[10px] uppercase truncate text-slate-500">{m.name}</p>
-                    <p className="text-amber-600 font-black text-sm">Rp {Number(m.price).toLocaleString()}</p>
-                  </div>
-                ))}
-              </div>
-            </main>
-            
-            <aside className="w-[380px] bg-white border-l p-8 flex flex-col shadow-2xl">
-              <h2 className="text-[10px] font-black uppercase text-slate-400 mb-6 tracking-widest text-center">Keranjang Belanja</h2>
-              <div className="flex-1 overflow-y-auto space-y-4 mb-6 scrollbar-hide">
-                {cart.map(item => (
-                  <div key={item.id} className="bg-slate-50 p-5 rounded-3xl flex justify-between items-center border border-slate-100 shadow-sm">
-                    <div className="flex-1 min-w-0 mr-2"><p className="font-black text-[11px] uppercase truncate">{item.name}</p><p className="text-xs font-black text-amber-600">Rp {(item.price * item.quantity).toLocaleString()}</p></div>
-                    <div className="flex items-center gap-2"><span className="font-black text-xs px-3 py-1 bg-white rounded-xl border">{item.quantity}x</span><button onClick={() => setCart(cart.filter(x => x.id !== item.id))} className="text-red-300 hover:text-red-500"><Trash2 size={18}/></button></div>
-                  </div>
-                ))}
-              </div>
-
-              {/* INPUT NOMOR ANTREAN MANUAL */}
-              <div className="mb-6 p-4 bg-amber-50 rounded-3xl border-2 border-dashed border-amber-200">
-                <p className="text-[10px] font-black uppercase text-amber-600 mb-2 text-center tracking-widest">Ketik Nomor Antrean</p>
-                <input 
-                  type="number" 
-                  value={manualQueueInput} 
-                  onChange={(e) => setManualQueueInput(e.target.value)}
-                  className="w-full py-3 bg-white rounded-2xl text-center text-3xl font-black text-slate-800 outline-none border-2 border-transparent focus:border-amber-500 transition-all"
-                  placeholder="00"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 mb-6">
-                {['Tunai', 'QRIS'].map(m => (
-                  <button key={m} onClick={() => setPaymentMethod(m)} className={`py-5 rounded-2xl border-2 font-black text-[10px] uppercase transition-all ${paymentMethod === m ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-300 border-slate-100'}`}>{m}</button>
-                ))}
-              </div>
-
-              <button onClick={handleCheckout} disabled={isSyncing || cart.length === 0} className="w-full py-6 bg-amber-500 text-white rounded-[2rem] font-black text-sm shadow-xl active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest">
-                {isSyncing ? 'SINKRON...' : `PROSES Rp ${cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}`}
-              </button>
-            </aside>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AdminPanel({ config, onRefresh }) {
-  return (
-    <main className="flex-1 p-10 bg-white">
-      <h1 className="text-4xl font-black mb-12 text-center uppercase italic tracking-tighter">Admin Panel</h1>
-      <div className="max-w-md mx-auto space-y-6">
-        <button onClick={async () => { await updateShiftCloud(config.shiftStatus === 'OPEN' ? 'CLOSED' : 'OPEN'); onRefresh(); }} className="w-full p-10 border-4 border-dashed border-slate-200 rounded-[3.5rem] font-black uppercase text-slate-500 active:bg-slate-50 transition-all shadow-sm">Shift: {config.shiftStatus}</button>
-        <p className="text-center text-slate-300 text-xs italic font-bold uppercase tracking-widest">Sistem Antrean Manual Aktif</p>
-      </div>
-    </main>
-  );
-}
-
-function LoginScreen({ users, onLogin, onRefresh }) {
-  const [pin, setPin] = useState('');
-  return (
-    <div className="h-screen w-screen flex items-center justify-center bg-slate-100 p-4">
-      <div className="bg-white p-14 rounded-[4rem] shadow-2xl w-full max-w-sm text-center border-b-[12px] border-amber-500">
-        <h2 className="text-3xl font-black mb-10 uppercase italic text-slate-800">Soto Ra-Me23</h2>
-        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} className="w-full bg-slate-50 py-6 rounded-3xl text-center text-5xl font-black outline-none border-4 border-transparent focus:border-amber-500 transition-all mb-6" placeholder="PIN" autoFocus />
-        <button onClick={() => { const u = users.find(u => String(u.pin) === String(pin)); if(u) onLogin(u); else alert("PIN SALAH!"); setPin(''); }} className="w-full py-6 bg-slate-900 text-white rounded-3xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all">Masuk</button>
-        <button onClick={onRefresh} className="mt-10 text-slate-300 hover:text-amber-500"><RefreshCw size={24} className="mx-auto" /></button>
-      </div>
-    </div>
-  );
-                                                                     }      setUsers(cloud.users || []);
-      setConfig({ qris: cloud.qris, shiftStatus: cloud.shiftStatus });
-    }
-    // Inisialisasi nomor antrean jika kosong
-    if (!localStorage.getItem('manualQueue')) {
-      localStorage.setItem('manualQueue', '1');
-    }
-    setIsLoading(false);
-  };
-
-  useEffect(() => { initApp(); }, []);
-
-  // ==========================================
-  // FIX PDF 58mm (ANTI STUCK PREVIEW)
-  // ==========================================
-  const handleCetakPDF = () => {
-    if (!lastOrder) return;
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({
-      unit: "mm",
-      format: [58, 80 + (lastOrder.items.length * 7)]
-    });
-
-    doc.setFont("courier", "bold");
-    doc.setFontSize(14);
-    doc.text("SOTO RA-ME23", 29, 10, { align: "center" });
-
-    doc.setFontSize(7);
-    doc.setFont("courier", "normal");
-    doc.text("Jl. Watumujur II, Ketawanggede", 29, 14, { align: "center" });
-    doc.text("Lowokwaru, Kota Malang", 29, 17, { align: "center" });
-
-    doc.setFontSize(16);
-    doc.setFont("courier", "bold");
-    doc.text(`ANTREAN: #${lastOrder.no}`, 29, 26, { align: "center" });
-    
-    doc.setFontSize(7);
-    doc.setFont("courier", "normal");
-    doc.text(lastOrder.date, 29, 31, { align: "center" });
-    doc.text("------------------------------------------", 29, 35, { align: "center" });
-
-    let yPos = 40;
-    doc.setFontSize(9);
-    lastOrder.items.forEach((item) => {
-      doc.text(`${item.name.substring(0, 15)} x${item.quantity}`, 5, yPos);
-      doc.text((item.price * item.quantity).toLocaleString(), 53, yPos, { align: "right" });
-      yPos += 6;
-    });
-
-    doc.text("------------------------------------------", 29, yPos + 2, { align: "center" });
-    doc.setFontSize(11);
-    doc.setFont("courier", "bold");
-    doc.text("TOTAL", 5, yPos + 9);
-    doc.text(`Rp ${lastOrder.total.toLocaleString()}`, 53, yPos + 9, { align: "right" });
-
-    doc.setFontSize(8);
-    doc.setFont("courier", "normal");
-    doc.text(`KASIR: ${lastOrder.kasir.toUpperCase()}`, 29, yPos + 17, { align: "center" });
-    doc.text("-- TERIMA KASIH --", 29, yPos + 22, { align: "center" });
-
-    window.open(doc.output("bloburl"), "_blank");
-  };
-
-  const handleCheckout = async () => {
-    if (cart.length === 0) return;
-    setIsSyncing(true);
-    
-    try {
-      const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
-      
-      // FIX NOMOR ANTREAN (AMBIL DARI LOCAL JADI GAK AKAN ??)
-      let currentQueue = parseInt(localStorage.getItem('manualQueue')) || 1;
-
-      const orderData = {
-        no: currentQueue,
-        date: new Date().toLocaleString('id-ID'),
-        items: [...cart],
-        total: total,
-        method: paymentMethod,
-        kasir: currentUser.username
-      };
-      
-      // Kirim ke Cloud (Google Sheet)
-      await saveOrderToSheet(cart, total, paymentMethod, currentUser.username);
-      
-      // Naikkan nomor antrean
-      localStorage.setItem('manualQueue', (currentQueue + 1).toString());
-
-      setLastOrder(orderData);
-      setCart([]); 
-      setShowQRModal(false);
-      setShowReceipt(true);
-      await initApp();
-    } catch (e) { 
-      alert("Cloud Error, tapi struk tetap bisa dicetak!"); 
-    } finally { 
-      setIsSyncing(false); 
-    }
-  };
-
-  if (isLoading) return <div className="h-screen flex items-center justify-center font-black text-amber-500 animate-pulse uppercase tracking-widest">Memuat Soto Ra-Me23...</div>;
-  if (!currentUser) return <LoginScreen users={users} onLogin={(u) => setCurrentUser(u)} onRefresh={initApp} />;
-
-  return (
-    <div className="h-screen bg-slate-100 flex overflow-hidden font-sans text-slate-900">
-      
-      {/* MODAL STRUK */}
-      {showReceipt && lastOrder && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-[3rem] shadow-2xl overflow-hidden border-t-[12px] border-amber-500">
-            <div className="p-8 text-center border-b border-dashed">
-              <h2 className="text-2xl font-black italic">Soto Ra-Me23</h2>
-              <div className="mt-4 bg-amber-50 py-4 rounded-3xl border border-amber-200">
-                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Nomor Antrean</p>
-                <p className="text-6xl font-black text-amber-600">#{lastOrder.no}</p>
-              </div>
-            </div>
-            <div className="p-6 bg-slate-50 grid grid-cols-2 gap-3">
-              <button onClick={handleCetakPDF} className="py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"><Printer size={18}/> Cetak PDF</button>
-              <button onClick={() => setShowReceipt(false)} className="py-5 bg-white border-2 border-slate-200 text-slate-400 rounded-2xl font-black uppercase text-[10px] active:scale-95">Tutup</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL QRIS */}
-      {showQRModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-[3rem] p-8 w-full max-w-sm text-center shadow-2xl">
-            <img src={config.qris} className="w-full aspect-square object-contain mb-4 border rounded-3xl p-2 bg-white" />
-            <p className="text-3xl font-black italic mb-6">Rp {cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}</p>
-            <button onClick={handleCheckout} className="w-full py-5 bg-green-600 text-white rounded-2xl font-black uppercase shadow-lg active:scale-95">Konfirmasi Bayar</button>
-          </div>
-        </div>
-      )}
-
-      {/* SIDEBAR */}
-      <nav className="w-20 bg-white border-r flex flex-col items-center py-8 justify-between shadow-sm">
-        <div className="flex flex-col gap-8">
-          <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg font-black italic text-xl">R</div>
-          <button onClick={() => setView('pos')} className={`p-3 rounded-xl ${view === 'pos' ? 'bg-amber-50 text-amber-600' : 'text-slate-300'}`}><LayoutGrid size={24}/></button>
-          {currentUser.role === 'admin' && <button onClick={() => setView('admin')} className={`p-3 rounded-xl ${view === 'admin' ? 'bg-slate-100 text-slate-900' : 'text-slate-300'}`}><Settings size={24}/></button>}
-        </div>
-        <button onClick={() => setCurrentUser(null)} className="text-slate-300 hover:text-red-500 transition-colors"><LogOut size={24}/></button>
-      </nav>
-
-      <div className="flex-1 flex overflow-hidden">
-        {view === 'admin' ? (
-          <AdminPanel config={config} onRefresh={initApp} />
-        ) : (
-          <>
-            <main className="flex-1 p-8 overflow-y-auto scrollbar-hide">
-              <h1 className="text-2xl font-black uppercase italic mb-8 border-l-8 border-amber-500 pl-4">Kasir: {currentUser.username}</h1>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {menu.map(m => (
-                  <div key={m.id} onClick={() => {
-                    const inCart = cart.find(x => x.id === m.id);
-                    setCart(inCart ? cart.map(x => x.id === m.id ? {...x, quantity: x.quantity + 1} : x) : [...cart, {...m, quantity: 1}]);
-                  }} className="bg-white p-6 rounded-[2.5rem] border hover:shadow-xl cursor-pointer active:scale-95 transition-all text-center">
-                    <div className="text-5xl mb-3">{m.img || '🍲'}</div>
-                    <p className="font-bold text-[10px] uppercase truncate text-slate-500">{m.name}</p>
-                    <p className="text-amber-600 font-black text-sm">Rp {Number(m.price).toLocaleString()}</p>
-                  </div>
-                ))}
-              </div>
-            </main>
-            
-            <aside className="w-[380px] bg-white border-l p-8 flex flex-col shadow-2xl">
-              <h2 className="text-[10px] font-black uppercase text-slate-400 mb-6 tracking-[0.2em] text-center">Keranjang Belanja</h2>
-              <div className="flex-1 overflow-y-auto space-y-4 mb-6 scrollbar-hide">
-                {cart.map(item => (
-                  <div key={item.id} className="bg-slate-50 p-5 rounded-3xl flex justify-between items-center border border-slate-100 shadow-sm">
-                    <div className="flex-1 min-w-0 mr-2"><p className="font-black text-[11px] uppercase truncate">{item.name}</p><p className="text-xs font-black text-amber-600">Rp {(item.price * item.quantity).toLocaleString()}</p></div>
-                    <div className="flex items-center gap-2"><span className="font-black text-xs px-3 py-1 bg-white rounded-xl border">{item.quantity}x</span><button onClick={() => setCart(cart.filter(x => x.id !== item.id))} className="text-red-300 hover:text-red-500"><Trash2 size={18}/></button></div>
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-2 mb-6">
-                {['Tunai', 'QRIS'].map(m => (
-                  <button key={m} onClick={() => setPaymentMethod(m)} className={`py-5 rounded-2xl border-2 font-black text-[10px] uppercase transition-all ${paymentMethod === m ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-300 border-slate-100'}`}>{m}</button>
-                ))}
-              </div>
-              <button onClick={handleCheckout} disabled={isSyncing || cart.length === 0} className="w-full py-6 bg-amber-500 text-white rounded-[2rem] font-black text-sm shadow-xl active:scale-95 transition-all disabled:opacity-50 uppercase tracking-widest">
-                {isSyncing ? 'Proses...' : `Bayar Rp ${cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}`}
-              </button>
-            </aside>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AdminPanel({ config, onRefresh }) {
-  const [val, setVal] = useState(localStorage.getItem('manualQueue') || 1);
-  return (
-    <main className="flex-1 p-10 bg-white overflow-y-auto">
-      <h1 className="text-4xl font-black mb-12 text-center uppercase italic tracking-tighter">Admin Control</h1>
-      <div className="max-w-md mx-auto space-y-8">
-        <div className="p-10 border-4 border-dashed border-amber-400 rounded-[3.5rem] bg-amber-50 text-center">
-          <p className="font-black text-xs uppercase mb-4 text-amber-700 tracking-widest">Atur Nomor Antrean Berikutnya</p>
-          <div className="flex gap-2">
-            <input type="number" value={val} onChange={(e) => setVal(e.target.value)} className="w-full p-5 rounded-2xl border-2 border-amber-300 text-center font-black text-3xl outline-none focus:border-amber-500" />
-            <button onClick={() => { localStorage.setItem('manualQueue', val); alert("Antrean di-set ke: " + val); }} className="px-8 bg-amber-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg active:scale-95">SET</button>
-          </div>
-          <p className="text-[10px] text-amber-500 mt-4 font-bold italic">*Set ke 1 untuk memulai hari baru</p>
-        </div>
-        <button onClick={async () => { await updateShiftCloud(config.shiftStatus === 'OPEN' ? 'CLOSED' : 'OPEN'); onRefresh(); }} className="w-full p-10 border-4 border-dashed border-slate-200 rounded-[3.5rem] font-black uppercase text-slate-500 active:bg-slate-50 transition-all">Shift: {config.shiftStatus}</button>
-      </div>
-    </main>
-  );
-}
-
-function LoginScreen({ users, onLogin, onRefresh }) {
-  const [pin, setPin] = useState('');
-  return (
-    <div className="h-screen w-screen flex items-center justify-center bg-slate-100 p-4">
-      <div className="bg-white p-14 rounded-[4rem] shadow-2xl w-full max-w-sm text-center border-b-[12px] border-amber-500">
-        <h2 className="text-3xl font-black mb-10 uppercase italic text-slate-800">Soto Ra-Me23</h2>
-        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} className="w-full bg-slate-50 py-6 rounded-3xl text-center text-5xl font-black outline-none border-4 border-transparent focus:border-amber-500 transition-all mb-6" placeholder="PIN" autoFocus />
-        <button onClick={() => { const u = users.find(u => String(u.pin) === String(pin)); if(u) onLogin(u); else alert("PIN SALAH!"); setPin(''); }} className="w-full py-6 bg-slate-900 text-white rounded-3xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all">Masuk</button>
-        <button onClick={onRefresh} className="mt-10 text-slate-300 hover:text-amber-500"><RefreshCw size={24} className="mx-auto" /></button>
-      </div>
-    </div>
-  );
-}      setUsers(cloud.users || []);
-      setConfig({ qris: cloud.qris, shiftStatus: cloud.shiftStatus });
-    }
-    setIsLoading(false);
-  };
-
-  useEffect(() => { initApp(); }, []);
-
-  // ==========================================
-  // CETAK STRUK PDF 58mm (FIX MATEPAD)
-  // ==========================================
-  const handleCetakPDF = () => {
-    if (!lastOrder) return;
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({
-      unit: "mm",
-      format: [58, 100 + (lastOrder.items.length * 5)]
-    });
-
-    doc.setFont("courier", "bold");
-    doc.setFontSize(14);
-    doc.text("SOTO RA-ME23", 29, 10, { align: "center" });
-
-    doc.setFontSize(7);
-    doc.setFont("courier", "normal");
-    doc.text("Jl. Watumujur II, Ketawanggede", 29, 14, { align: "center" });
-    doc.text("Lowokwaru, Kota Malang", 29, 17, { align: "center" });
-
-    doc.setFontSize(14);
-    doc.setFont("courier", "bold");
-    doc.text(`ANTREAN: #${lastOrder.no}`, 29, 26, { align: "center" });
-    
-    doc.setFontSize(7);
-    doc.setFont("courier", "normal");
-    doc.text(lastOrder.date, 29, 30, { align: "center" });
-    doc.text("------------------------------------------", 29, 34, { align: "center" });
-
-    let yPos = 38;
-    doc.setFontSize(8);
-    lastOrder.items.forEach((item) => {
-      doc.text(`${item.name} x${item.quantity}`, 5, yPos);
-      doc.text((item.price * item.quantity).toLocaleString(), 53, yPos, { align: "right" });
-      yPos += 5;
-    });
-
-    doc.text("------------------------------------------", 29, yPos + 2, { align: "center" });
-    doc.setFontSize(10);
-    doc.setFont("courier", "bold");
-    doc.text("TOTAL", 5, yPos + 7);
-    doc.text(`Rp ${lastOrder.total.toLocaleString()}`, 53, yPos + 7, { align: "right" });
-
-    doc.setFontSize(7);
-    doc.setFont("courier", "normal");
-    doc.text(`KASIR: ${lastOrder.kasir.toUpperCase()}`, 29, yPos + 15, { align: "center" });
-    doc.text("-- TERIMA KASIH --", 29, yPos + 20, { align: "center" });
-
-    const pdfUrl = doc.output("bloburl");
-    window.open(pdfUrl, "_blank");
-  };
-
-  const handleCheckout = async () => {
-    if (cart.length === 0) return;
-    setIsSyncing(true);
-    try {
-      const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
-      
-      // Ambil nomor antrean dari pengaturan admin (Default: 1)
-      const currentQueue = parseInt(localStorage.getItem('manualQueue')) || 1;
-
-      const orderData = {
-        no: currentQueue,
-        date: new Date().toLocaleString('id-ID'),
-        items: [...cart],
-        total: total,
-        method: paymentMethod,
-        kasir: currentUser.username
-      };
-      
-      await saveOrderToSheet(cart, total, paymentMethod, currentUser.username);
-      
-      // Update nomor antrean berikutnya (+1)
-      localStorage.setItem('manualQueue', currentQueue + 1);
-
-      setLastOrder(orderData);
-      setCart([]); 
-      setShowQRModal(false);
-      setShowReceipt(true);
-      await initApp();
-    } catch (e) { alert("ERROR!"); } finally { setIsSyncing(false); }
-  };
-
-  if (isLoading) return <div className="h-screen flex items-center justify-center font-black text-amber-500 animate-pulse">SOTO RA-ME23...</div>;
-  if (!currentUser) return <LoginScreen users={users} onLogin={(u) => setCurrentUser(u)} onRefresh={initApp} />;
-
-  return (
-    <div className="h-screen bg-slate-50 flex overflow-hidden font-sans">
-      {/* MODAL receipt */}
-      {showReceipt && lastOrder && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden border-t-[12px] border-amber-500">
-            <div className="p-8 text-center">
-              <h2 className="text-2xl font-black italic">Soto Ra-Me23</h2>
-              <div className="mt-4 bg-amber-50 py-3 rounded-2xl border border-amber-100">
-                <p className="text-[10px] font-black text-amber-600 uppercase">Antrean</p>
-                <p className="text-5xl font-black text-amber-600">#{lastOrder.no}</p>
-              </div>
-            </div>
-            <div className="p-6 bg-slate-50 grid grid-cols-2 gap-3">
-              <button onClick={handleCetakPDF} className="py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg"><Printer size={16}/> Cetak PDF</button>
-              <button onClick={() => setShowReceipt(false)} className="py-4 bg-white border-2 border-slate-200 text-slate-400 rounded-2xl font-black uppercase text-[10px] active:scale-95">Tutup</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* QR MODAL */}
-      {showQRModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm text-center">
-            <img src={config.qris} className="w-full mb-4 border rounded-2xl p-2" />
-            <p className="text-2xl font-black mb-6">Rp {cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}</p>
-            <button onClick={handleCheckout} className="w-full py-4 bg-green-600 text-white rounded-2xl font-black uppercase active:scale-95">Selesai</button>
-          </div>
-        </div>
-      )}
-
-      <nav className="w-20 bg-white border-r flex flex-col items-center py-8 justify-between shadow-sm">
-        <div className="flex flex-col gap-8">
-          <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg font-black italic text-xl">R</div>
-          <button onClick={() => setView('pos')} className={`p-3 rounded-xl ${view === 'pos' ? 'bg-amber-50 text-amber-600' : 'text-slate-300'}`}><LayoutGrid size={24}/></button>
-          {currentUser.role === 'admin' && <button onClick={() => setView('admin')} className={`p-3 rounded-xl ${view === 'admin' ? 'bg-slate-100 text-slate-900' : 'text-slate-300'}`}><Settings size={24}/></button>}
-        </div>
-        <button onClick={() => setCurrentUser(null)} className="text-slate-300 hover:text-red-500"><LogOut size={24}/></button>
-      </nav>
-
-      <div className="flex-1 flex overflow-hidden">
-        {view === 'admin' ? (
-          <AdminPanel config={config} onRefresh={initApp} />
-        ) : (
-          <>
-            <main className="flex-1 p-8 overflow-y-auto">
-              <div className="flex justify-between items-center mb-8">
-                <h1 className="text-2xl font-black uppercase italic tracking-tighter decoration-amber-500 decoration-4 underline underline-offset-4">Kasir: {currentUser.username}</h1>
-                <button onClick={initApp} className="p-2 text-slate-300 hover:text-amber-500"><RefreshCw size={20}/></button>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {menu.map(m => (
-                  <div key={m.id} onClick={() => {
-                    const inCart = cart.find(x => x.id === m.id);
-                    setCart(inCart ? cart.map(x => x.id === m.id ? {...x, quantity: x.quantity + 1} : x) : [...cart, {...m, quantity: 1}]);
-                  }} className="bg-white p-6 rounded-[2rem] border hover:shadow-xl cursor-pointer active:scale-95 transition-all text-center">
-                    <div className="text-5xl mb-3">{m.img || '🍲'}</div>
-                    <p className="font-bold text-[10px] uppercase truncate">{m.name}</p>
-                    <p className="text-amber-600 font-black text-[11px]">Rp {Number(m.price).toLocaleString()}</p>
-                  </div>
-                ))}
-              </div>
-            </main>
-            <aside className="w-[350px] bg-white border-l p-8 flex flex-col shadow-2xl">
-              <h2 className="text-[10px] font-black uppercase text-slate-400 mb-6 tracking-widest text-center flex items-center justify-center gap-2"><ShoppingBag size={14}/> Keranjang</h2>
-              <div className="flex-1 overflow-y-auto space-y-4 mb-6">
-                {cart.map(item => (
-                  <div key={item.id} className="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100">
-                    <div className="flex-1 min-w-0 mr-2"><p className="font-bold text-[10px] uppercase truncate">{item.name}</p><p className="text-[11px] font-black text-amber-600">Rp {(item.price * item.quantity).toLocaleString()}</p></div>
-                    <div className="flex items-center gap-2"><span className="font-black text-xs px-2 py-1 bg-white rounded-lg border">{item.quantity}x</span><button onClick={() => setCart(cart.filter(x => x.id !== item.id))} className="text-red-300 hover:text-red-500"><Trash2 size={16}/></button></div>
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-2 mb-6 text-[10px] font-black uppercase">
-                {['Tunai', 'QRIS'].map(m => (
-                  <button key={m} onClick={() => setPaymentMethod(m)} className={`py-4 rounded-xl border-2 ${paymentMethod === m ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-300 border-slate-100'}`}>{m}</button>
-                ))}
-              </div>
-              <button onClick={handleCheckout} disabled={isSyncing || cart.length === 0} className="w-full py-5 bg-amber-500 text-white rounded-2xl font-black text-xs shadow-xl active:scale-95 transition-all">
-                {isSyncing ? 'SINKRON...' : `BAYAR Rp ${cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}`}
-              </button>
-            </aside>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AdminPanel({ config, onRefresh }) {
-  const [newQueue, setNewQueue] = useState(localStorage.getItem('manualQueue') || 1);
-  const handleSetQueue = () => {
-    localStorage.setItem('manualQueue', newQueue);
-    alert(`Nomor berikutnya: ${newQueue}`);
-  };
-
-  return (
-    <main className="flex-1 p-10 bg-white">
-      <h1 className="text-4xl font-black mb-12 text-center uppercase tracking-tighter italic">Admin Panel</h1>
-      <div className="max-w-md mx-auto space-y-6">
-        <div className="p-8 border-4 border-dashed border-amber-200 rounded-[3rem] bg-amber-50/50 flex flex-col gap-4">
-          <p className="font-black text-[10px] uppercase text-center tracking-widest text-amber-600">Pengaturan Antrean</p>
-          <div className="flex gap-2">
-            <input type="number" value={newQueue} onChange={(e) => setNewQueue(e.target.value)} className="w-full p-4 rounded-2xl border-2 border-amber-300 text-center font-black text-xl outline-none" />
-            <button onClick={handleSetQueue} className="px-6 bg-amber-500 text-white rounded-2xl font-black uppercase text-[10px]">SET</button>
-          </div>
-          <p className="text-[9px] text-amber-400 text-center">*Ganti ke 1 untuk reset setiap jam 23:00 WIB</p>
-        </div>
-        <button onClick={async () => { await updateShiftCloud(config.shiftStatus === 'OPEN' ? 'CLOSED' : 'OPEN'); onRefresh(); }} className="w-full p-8 border-4 border-dashed border-slate-200 rounded-[3rem] font-black uppercase tracking-widest text-slate-500 active:scale-95 transition-all">Status Shift: {config.shiftStatus}</button>
-      </div>
-    </main>
-  );
-}
-
-function LoginScreen({ users, onLogin, onRefresh }) {
-  const [pin, setPin] = useState('');
-  return (
-    <div className="h-screen w-screen flex items-center justify-center bg-slate-100 p-4">
-      <div className="bg-white p-14 rounded-[4rem] shadow-2xl w-full max-w-sm text-center">
-        <h2 className="text-3xl font-black mb-10 uppercase italic">Soto Ra-Me23</h2>
-        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} className="w-full bg-slate-50 py-6 rounded-3xl text-center text-4xl font-black outline-none border-4 border-transparent focus:border-amber-500 transition-all mb-4" placeholder="PIN" autoFocus />
-        <button onClick={() => { const u = users.find(u => String(u.pin) === String(pin)); if(u) onLogin(u); else alert("SALAH PIN!"); }} className="w-full py-5 bg-slate-900 text-white rounded-3xl font-black uppercase tracking-widest active:scale-95">Masuk</button>
-        <button onClick={onRefresh} className="mt-8 text-slate-300"><RefreshCw size={22} className="mx-auto" /></button>
-      </div>
-    </div>
-  );
-}      setUsers(cloud.users || []);
-      setConfig({ qris: cloud.qris, shiftStatus: cloud.shiftStatus });
-    }
-    setIsLoading(false);
-  };
-
-  useEffect(() => { initApp(); }, []);
-
-  // ==========================================
-  // GENERATE PDF 58mm (SOLUSI MATEPAD)
-  // ==========================================
-  const handleCetakPDF = async () => {
-    if (!lastOrder) return;
-    const { jsPDF } = window.jspdf;
-
-    // Tinggi dinamis: 60mm dasar + (jumlah item * 7mm)
-    const dynamicHeight = 60 + (lastOrder.items.length * 7);
-    const doc = new jsPDF({
-      unit: "mm",
-      format: [58, dynamicHeight],
-      putOnlyUsedFonts: true
-    });
-
-    // Desain Struk Minimalis & Tajam
-    doc.setFont("courier", "bold");
-    doc.setFontSize(14);
-    doc.text("SOTO RA-ME23", 29, 10, { align: "center" });
-
-    doc.setFont("courier", "normal");
-    doc.setFontSize(7);
-    doc.text("Jl. Watumujur II, Ketawanggede", 29, 14, { align: "center" });
-    doc.text("Kec. Lowokwaru, Kota Malang", 29, 17, { align: "center" });
-
-    doc.setFontSize(12);
-    doc.setFont("courier", "bold");
-    doc.text(`ANTREAN: #${lastOrder.no}`, 29, 25, { align: "center" });
-    
-    doc.setFontSize(7);
-    doc.setFont("courier", "normal");
-    doc.text(lastOrder.date, 29, 29, { align: "center" });
-    doc.text("------------------------------------------", 29, 33, { align: "center" });
-
-    let yPos = 38;
-    doc.setFontSize(9);
-    lastOrder.items.forEach((item) => {
-      doc.text(`${item.name.substring(0, 15)} x${item.quantity}`, 5, yPos);
-      const subtotal = (item.price * item.quantity).toLocaleString();
-      doc.text(subtotal, 53, yPos, { align: "right" });
-      yPos += 6;
-    });
-
-    doc.text("------------------------------------------", 29, yPos + 2, { align: "center" });
-    doc.setFontSize(11);
-    doc.setFont("courier", "bold");
-    doc.text("TOTAL", 5, yPos + 9);
-    doc.text(`Rp ${lastOrder.total.toLocaleString()}`, 53, yPos + 9, { align: "right" });
-
-    doc.setFontSize(8);
-    doc.setFont("courier", "normal");
-    doc.text(`KASIR: ${lastOrder.kasir.toUpperCase()}`, 29, yPos + 16, { align: "center" });
-    doc.text("-- TERIMA KASIH --", 29, yPos + 21, { align: "center" });
-
-    // Langsung buka PDF
-    const pdfBlob = doc.output("bloburl");
-    window.open(pdfBlob, "_blank");
-  };
-
-  const handleCheckout = async () => {
-    if (cart.length === 0) return;
-    if (config.shiftStatus === 'CLOSED' && currentUser.role !== 'admin') { 
-      alert("SHIFT TUTUP!"); return; 
-    }
-    if (paymentMethod === 'QRIS' && !showQRModal) { 
-      setShowQRModal(true); return; 
-    }
-    
-    setIsSyncing(true);
-    try {
-      const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
-      const response = await saveOrderToSheet(cart, total, paymentMethod, currentUser.username);
-      const queueNo = response && response.queueNumber ? response.queueNumber : "??";
-
-      const orderData = {
-        no: queueNo,
-        date: new Date().toLocaleString('id-ID'),
-        items: [...cart],
-        total: total,
-        method: paymentMethod,
-        kasir: currentUser.username
-      };
-      
-      setLastOrder(orderData);
-      setCart([]); 
-      setShowQRModal(false);
-      setShowReceipt(true);
-      await initApp();
-    } catch (e) { 
-      alert("GAGAL KONEKSI!"); 
-    } finally { 
-      setIsSyncing(false); 
-    }
-  };
-
-  if (isLoading) return <div className="h-screen flex items-center justify-center font-black text-amber-500 animate-pulse uppercase tracking-[0.3em]">Soto Ra-Me23...</div>;
-  if (!currentUser) return <LoginScreen users={users} onLogin={(u) => setCurrentUser(u)} onRefresh={initApp} />;
-
-  return (
-    <div className="h-screen bg-slate-50 flex overflow-hidden font-sans select-none text-slate-900">
-      
-      {/* MODAL STRUK DIGITAL */}
-      {showReceipt && lastOrder && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden border-t-[12px] border-amber-500">
-            <div className="p-8 text-center border-b border-dashed border-slate-200">
-              <h2 className="text-2xl font-black italic">Soto Ra-Me23</h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Jl. Watumujur II, Malang</p>
-              <div className="mt-4 bg-amber-50 py-3 rounded-2xl border border-amber-100">
-                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Antrean</p>
-                <p className="text-5xl font-black text-amber-600">#{lastOrder.no}</p>
-              </div>
-            </div>
-            
-            <div className="p-8 space-y-4 font-mono text-[11px]">
-              <div className="flex justify-between font-bold text-slate-400 uppercase">
-                <span>{lastOrder.date}</span>
-                <span>{lastOrder.kasir}</span>
-              </div>
-              <div className="py-4 border-y border-dashed border-slate-200 space-y-2 text-slate-800">
-                {lastOrder.items.map((item, idx) => (
-                  <div key={idx} className="flex justify-between font-bold">
-                    <span>{item.name} x{item.quantity}</span>
-                    <span>{(item.price * item.quantity).toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-between items-center pt-2">
-                <span className="font-black uppercase text-[10px]">Total</span>
-                <span className="text-2xl font-black italic">Rp {lastOrder.total.toLocaleString()}</span>
-              </div>
-            </div>
-
-            <div className="p-6 bg-slate-50 grid grid-cols-2 gap-3">
-              <button onClick={handleCetakPDF} className="py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg">
-                <Printer size={16}/> Cetak PDF
-              </button>
-              <button onClick={() => setShowReceipt(false)} className="py-4 bg-white border-2 border-slate-200 text-slate-400 rounded-2xl font-black uppercase text-[10px] active:scale-95">
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL QRIS */}
-      {showQRModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm border-4 border-amber-500 text-center shadow-2xl">
-            <div className="flex justify-between items-center mb-6 text-slate-400 font-black text-[10px] uppercase">
-              <span>Bayar QRIS</span>
-              <button onClick={() => setShowQRModal(false)}><X size={20}/></button>
-            </div>
-            <img src={config.qris} className="w-full aspect-square object-contain mb-4 border rounded-2xl p-2 bg-white" alt="QRIS" />
-            <p className="text-3xl font-black italic mb-6">Rp {cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}</p>
-            <button onClick={handleCheckout} className="w-full py-5 bg-green-600 text-white rounded-2xl font-black uppercase shadow-lg active:scale-95">Selesai Bayar</button>
-          </div>
-        </div>
-      )}
-
-      {/* SIDEBAR */}
-      <nav className="w-20 bg-white border-r flex flex-col items-center py-8 justify-between shadow-sm">
-        <div className="flex flex-col gap-8">
-          <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg font-black italic text-xl shadow-amber-100">R</div>
-          <button onClick={() => setView('pos')} className={`p-3 rounded-xl transition-all ${view === 'pos' ? 'bg-amber-50 text-amber-600' : 'text-slate-300'}`}><LayoutGrid size={24}/></button>
-          {currentUser.role === 'admin' && (
-            <button onClick={() => setView('admin')} className={`p-3 rounded-xl transition-all ${view === 'admin' ? 'bg-slate-100 text-slate-900' : 'text-slate-300'}`}><Settings size={24}/></button>
-          )}
-        </div>
-        <button onClick={() => setCurrentUser(null)} className="text-slate-300 hover:text-red-500 transition-all"><LogOut size={24}/></button>
-      </nav>
-
-      {/* MAIN CONTENT */}
-      <div className="flex-1 flex overflow-hidden">
-        {view === 'admin' ? (
-          <AdminPanel config={config} onRefresh={initApp} />
-        ) : (
-          <>
-            <main className="flex-1 p-8 overflow-y-auto scrollbar-hide">
-              <div className="flex justify-between items-center mb-8">
-                <h1 className="text-2xl font-black uppercase italic tracking-tighter decoration-amber-500 decoration-4 underline underline-offset-4 text-slate-800">Kasir: {currentUser.username}</h1>
-                <button onClick={initApp} className="p-2 text-slate-300 hover:text-amber-500 active:rotate-180 transition-all"><RefreshCw size={20}/></button>
-              </div>
-              <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
-                {['Semua', 'Makanan', 'Minuman', 'Jajanan'].map(cat => (
-                  <button key={cat} onClick={() => setActiveTab(cat)} className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === cat ? 'bg-amber-500 text-white shadow-lg shadow-amber-200' : 'bg-white text-slate-400 border border-slate-100'}`}>{cat}</button>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {menu.filter(i => activeTab === 'Semua' || i.category === activeTab).map(m => (
-                  <div key={m.id} onClick={() => {
-                    if (m.stock <= 0) return;
-                    const inCart = cart.find(x => x.id === m.id);
-                    setCart(inCart ? cart.map(x => x.id === m.id ? {...x, quantity: x.quantity + 1} : x) : [...cart, {...m, quantity: 1}]);
-                  }} className={`bg-white p-6 rounded-[2rem] border relative transition-all text-center shadow-sm ${m.stock <= 0 ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:shadow-xl hover:border-amber-200 cursor-pointer active:scale-95'}`}>
-                    <div className="absolute top-4 right-4 text-[8px] font-black bg-slate-100 px-2 py-1 rounded-full uppercase">{m.stock <= 0 ? 'HABIS' : `STOK: ${m.stock}`}</div>
-                    <div className="text-5xl mb-3 mt-4">{m.img || '🍲'}</div>
-                    <p className="font-bold text-[10px] uppercase truncate text-slate-600 mb-1">{m.name}</p>
-                    <p className="text-amber-600 font-black text-[11px]">Rp {Number(m.price).toLocaleString()}</p>
-                  </div>
-                ))}
-              </div>
-            </main>
-            
-            <aside className="w-[350px] bg-white border-l p-8 flex flex-col shadow-2xl">
-              <h2 className="text-[10px] font-black uppercase text-slate-400 mb-6 tracking-widest text-center flex items-center justify-center gap-2"><ShoppingBag size={14}/> Keranjang</h2>
-              <div className="flex-1 overflow-y-auto space-y-4 mb-6 scrollbar-hide">
-                {cart.map(item => (
-                  <div key={item.id} className="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100 shadow-sm">
-                    <div className="flex-1 min-w-0 mr-2"><p className="font-bold text-[10px] uppercase truncate">{item.name}</p><p className="text-[11px] font-black text-amber-600">Rp {(item.price * item.quantity).toLocaleString()}</p></div>
-                    <div className="flex items-center gap-2"><span className="font-black text-xs px-2 py-1 bg-white rounded-lg border">{item.quantity}x</span><button onClick={() => setCart(cart.filter(x => x.id !== item.id))} className="text-red-300 hover:text-red-500 transition-all"><Trash2 size={16}/></button></div>
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-2 mb-6">
-                {['Tunai', 'QRIS'].map(m => (
-                  <button key={m} onClick={() => setPaymentMethod(m)} className={`py-4 rounded-xl border-2 transition-all flex flex-col items-center gap-1 font-black text-[10px] uppercase ${paymentMethod === m ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-300 border-slate-100'}`}>{m === 'Tunai' ? <Banknote size={16}/> : <Wallet size={16}/>} {m}</button>
-                ))}
-              </div>
-              <div className="pt-6 border-t-4 border-double border-slate-100">
-                <div className="flex justify-between items-center mb-6 text-slate-900 font-black italic text-3xl tracking-tighter text-center"><span>Rp</span><span>{cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}</span></div>
-                <button onClick={handleCheckout} disabled={isSyncing || cart.length === 0} className={`w-full py-5 rounded-2xl font-black text-xs shadow-xl transition-all uppercase tracking-[0.2em] ${cart.length === 0 ? 'bg-slate-100 text-slate-300' : 'bg-amber-500 text-white shadow-amber-200 active:scale-95'}`}>{isSyncing ? 'SINKRON...' : `BAYAR SEKARANG`}</button>
-              </div>
-            </aside>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// PANEL ADMIN & LOGIN SCREEN (TETAP SAMA)
-function AdminPanel({ config, onRefresh }) {
-  const [isUpdating, setIsUpdating] = useState(false);
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      setIsUpdating(true); await updateQrisCloud(event.target.result);
-      alert("QRIS DIPERBARUI!"); onRefresh(); setIsUpdating(false);
-    };
-    reader.readAsDataURL(file);
-  };
-  return (
-    <main className="flex-1 p-10 bg-white overflow-y-auto">
-      <h1 className="text-4xl font-black mb-12 text-center uppercase tracking-tighter underline decoration-blue-500 decoration-8 italic underline-offset-8">Admin Control</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-        <button onClick={async () => { await updateShiftCloud(config.shiftStatus === 'OPEN' ? 'CLOSED' : 'OPEN'); onRefresh(); }} className={`p-10 border-4 border-dashed rounded-[3.5rem] flex flex-col items-center gap-4 transition-all active:scale-95 ${config.shiftStatus === 'OPEN' ? 'border-red-100 bg-red-50/10' : 'border-green-100 bg-green-50/10'}`}>
-          <Settings size={40} className={config.shiftStatus === 'OPEN' ? "text-red-500" : "text-green-500"} />
-          <span className="font-black text-xs uppercase tracking-widest text-slate-700">Shift Status: {config.shiftStatus}</span>
-        </button>
-        <div className="p-10 border-4 border-dashed border-slate-100 rounded-[3.5rem] flex flex-col items-center gap-4 bg-slate-50 text-center">
-          <Camera size={40} className="text-blue-500" />
-          <div className="flex gap-2 w-full">
-            <label className="flex-1 py-4 bg-blue-500 text-white rounded-2xl cursor-pointer shadow-lg shadow-blue-100 font-black text-[10px] uppercase tracking-widest leading-none flex items-center justify-center">
-              {isUpdating ? "..." : "UPLOAD QRIS"}<input type="file" className="hidden" onChange={handleFileUpload} />
-            </label>
-            <button onClick={() => { const u = prompt("Link QRIS:"); if(u) updateQrisCloud(u).then(onRefresh); }} className="flex-1 py-4 bg-white border-2 border-slate-200 rounded-2xl hover:bg-slate-100 font-black text-[10px] uppercase tracking-widest">LINK</button>
-          </div>
-        </div>
-      </div>
-    </main>
-  );
-}
-
-function LoginScreen({ users, onLogin, onRefresh }) {
-  const [pin, setPin] = useState('');
-  return (
-    <div className="h-screen w-screen flex items-center justify-center bg-slate-100 p-4">
-      <div className="bg-white p-14 rounded-[4rem] shadow-2xl w-full max-w-sm text-center border-b-[12px] border-amber-500">
-        <div className="w-20 h-20 bg-amber-500 rounded-[1.5rem] flex items-center justify-center text-white mx-auto mb-10 font-black text-4xl italic shadow-xl shadow-amber-100">R</div>
-        <h2 className="text-3xl font-black mb-10 uppercase italic tracking-tighter text-slate-800">Soto Ra-Me23</h2>
-        <form onSubmit={(e) => { e.preventDefault(); const u = users.find(u => String(u.pin) === String(pin)); if(u) onLogin(u); else alert("PIN SALAH!"); setPin(''); }} className="space-y-5">
-          <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} className="w-full bg-slate-50 py-6 rounded-3xl text-center text-4xl font-black outline-none border-4 border-transparent focus:border-amber-500 transition-all placeholder-slate-200 text-slate-800" placeholder="••••" autoFocus />
-          <button type="submit" className="w-full py-5 bg-slate-900 text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl active:scale-95 transition-all shadow-slate-200">Masuk Kasir</button>
-        </form>
-        <button onClick={onRefresh} className="mt-10 text-slate-300 hover:text-amber-500 transition-colors"><RefreshCw size={22} className="mx-auto" /></button>
-      </div>
-    </div>
-  );
-            }    if (!lastOrder) return;
-
-    // Hapus iframe lama jika ada
-    const oldFrame = document.getElementById('print-frame');
-    if (oldFrame) oldFrame.remove();
-
-    // Buat iframe baru (hidden)
-    const iframe = document.createElement('iframe');
-    iframe.id = 'print-frame';
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-
-    const htmlStruk = `
-      <html>
-        <head>
-          <style>
-            @page { margin: 0; size: 58mm auto; }
-            body { 
-              font-family: 'Courier New', Courier, monospace; 
-              width: 48mm; padding: 4mm 2mm; margin: 0; color: black; font-size: 10pt; line-height: 1.2;
-            }
-            .text-center { text-align: center; }
-            .line { border-bottom: 1px dashed black; margin: 5px 0; }
-            .flex { display: flex; justify-content: space-between; }
-            .header { font-size: 14pt; font-weight: bold; }
-            .address { font-size: 7pt; margin-bottom: 5px; line-height: 1.1; }
-          </style>
-        </head>
-        <body>
-          <div class="text-center">
-            <div class="header">SOTO RA-ME23</div>
-            <div class="address">
-              Jl. Watumujur II, Ketawanggede,<br>
-              Kec. Lowokwaru, Kota Malang
-            </div>
-            <div style="font-size: 12pt; font-weight:bold; margin: 5px 0;">ANTREAN: #${lastOrder.no}</div>
-            <div style="font-size: 7pt;">${lastOrder.date}</div>
-          </div>
-          <div class="line"></div>
-          ${lastOrder.items.map(item => `
-            <div style="font-size: 9pt; margin-bottom: 3px;">
-              <div class="flex"><span>${item.name}</span><span>${(item.price * item.quantity).toLocaleString()}</span></div>
-              <div style="font-size: 8pt;">${item.quantity} x ${Number(item.price).toLocaleString()}</div>
-            </div>
-          `).join('')}
-          <div class="line"></div>
-          <div class="flex" style="font-weight:bold; font-size: 11pt;"><span>TOTAL</span><span>Rp ${lastOrder.total.toLocaleString()}</span></div>
-          <div class="line"></div>
-          <div class="text-center" style="font-size: 8pt; margin-top: 10px;">
-            KASIR: ${lastOrder.kasir.toUpperCase()}<br>-- TERIMA KASIH --
-          </div>
-        </body>
-      </html>
-    `;
-
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(htmlStruk);
-    doc.close();
-
-    // Kasih jeda biar MatePad gak "Preparing Preview" terus
-    setTimeout(() => {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
-    }, 800);
-  };
-
-  const handleCheckout = async () => {
-    if (cart.length === 0) return;
-    if (config.shiftStatus === 'CLOSED' && currentUser.role !== 'admin') { 
-      alert("SHIFT TUTUP!"); return; 
-    }
-    if (paymentMethod === 'QRIS' && !showQRModal) { 
-      setShowQRModal(true); return; 
-    }
-    
-    setIsSyncing(true);
-    try {
-      const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
-      const response = await saveOrderToSheet(cart, total, paymentMethod, currentUser.username);
-      
-      const queueNo = response && response.queueNumber ? response.queueNumber : "??";
-
-      const orderData = {
-        no: queueNo,
-        date: new Date().toLocaleString('id-ID'),
-        items: [...cart],
-        total: total,
-        method: paymentMethod,
-        kasir: currentUser.username
-      };
-      
-      setLastOrder(orderData);
-      setCart([]); 
-      setShowQRModal(false);
-      setShowReceipt(true);
-      await initApp();
-    } catch (e) { 
-      alert("GAGAL KONEKSI CLOUD!"); 
-    } finally { 
-      setIsSyncing(false); 
-    }
-  };
-
-  if (isLoading) return <div className="h-screen flex items-center justify-center font-black text-amber-500 animate-pulse">MEMUAT SOTO RA-ME23...</div>;
-  if (!currentUser) return <LoginScreen users={users} onLogin={(u) => setCurrentUser(u)} onRefresh={initApp} />;
-
-  return (
-    <div className="h-screen bg-slate-50 flex overflow-hidden font-sans select-none text-slate-900">
-      
-      {/* MODAL STRUK DIGITAL */}
-      {showReceipt && lastOrder && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden border-t-[12px] border-amber-500">
-            <div className="p-8 text-center border-b border-dashed border-slate-200">
-              <h2 className="text-2xl font-black italic">Soto Ra-Me23</h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Jl. Watumujur II, Malang</p>
-              <div className="mt-4 bg-amber-50 py-3 rounded-2xl border border-amber-100">
-                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Nomor Antrean</p>
-                <p className="text-5xl font-black text-amber-600">#{lastOrder.no}</p>
-              </div>
-            </div>
-            
-            <div className="p-8 space-y-4 font-mono text-[11px]">
-              <div className="flex justify-between font-bold text-slate-400 uppercase">
-                <span>{lastOrder.date}</span>
-                <span>{lastOrder.kasir}</span>
-              </div>
-              <div className="py-4 border-y border-dashed border-slate-200 space-y-2 text-slate-800">
-                {lastOrder.items.map((item, idx) => (
-                  <div key={idx} className="flex justify-between font-bold">
-                    <span>{item.name} x{item.quantity}</span>
-                    <span>{(item.price * item.quantity).toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-between items-center pt-2">
-                <span className="font-black uppercase text-[10px]">Total Tagihan</span>
-                <span className="text-2xl font-black italic">Rp {lastOrder.total.toLocaleString()}</span>
-              </div>
-            </div>
-
-            <div className="p-6 bg-slate-50 grid grid-cols-2 gap-3">
-              <button onClick={handleCetakStruk} className="py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg">
-                <Printer size={16}/> Cetak Struk
-              </button>
-              <button onClick={() => setShowReceipt(false)} className="py-4 bg-white border-2 border-slate-200 text-slate-400 rounded-2xl font-black uppercase text-[10px] active:scale-95">
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL QRIS */}
-      {showQRModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm border-4 border-amber-500 text-center shadow-2xl">
-            <div className="flex justify-between items-center mb-6 text-slate-400 font-black text-[10px] uppercase">
-              <span>Pembayaran QRIS</span>
-              <button onClick={() => setShowQRModal(false)}><X size={20}/></button>
-            </div>
-            <img src={config.qris} className="w-full aspect-square object-contain mb-4 border rounded-2xl p-2 bg-white shadow-inner" alt="QRIS" />
-            <p className="text-3xl font-black italic mb-6">Rp {cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}</p>
-            <button onClick={handleCheckout} className="w-full py-5 bg-green-600 text-white rounded-2xl font-black uppercase shadow-lg active:scale-95 transition-all">Konfirmasi Bayar</button>
-          </div>
-        </div>
-      )}
-
-      {/* SIDEBAR NAVIGATION */}
-      <nav className="w-20 bg-white border-r flex flex-col items-center py-8 justify-between shadow-sm">
-        <div className="flex flex-col gap-8">
-          <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg font-black italic text-xl shadow-amber-100">R</div>
-          <button onClick={() => setView('pos')} className={`p-3 rounded-xl transition-all ${view === 'pos' ? 'bg-amber-50 text-amber-600' : 'text-slate-300'}`}><LayoutGrid size={24}/></button>
-          {currentUser.role === 'admin' && (
-            <button onClick={() => setView('admin')} className={`p-3 rounded-xl transition-all ${view === 'admin' ? 'bg-slate-100 text-slate-900' : 'text-slate-300'}`}><Settings size={24}/></button>
-          )}
-        </div>
-        <button onClick={() => setCurrentUser(null)} className="text-slate-300 hover:text-red-500 transition-all"><LogOut size={24}/></button>
-      </nav>
-
-      <div className="flex-1 flex overflow-hidden">
-        {view === 'admin' ? (
-          <AdminPanel config={config} onRefresh={initApp} />
-        ) : (
-          <>
-            <main className="flex-1 p-8 overflow-y-auto scrollbar-hide">
-              <div className="flex justify-between items-center mb-8">
-                <h1 className="text-2xl font-black uppercase italic tracking-tighter decoration-amber-500 decoration-4 underline underline-offset-4 text-slate-800">Kasir: {currentUser.username}</h1>
-                <button onClick={initApp} className="p-2 text-slate-300 hover:text-amber-500 active:rotate-180 transition-all duration-500"><RefreshCw size={20}/></button>
-              </div>
-              <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
-                {['Semua', 'Makanan', 'Minuman', 'Jajanan'].map(cat => (
-                  <button key={cat} onClick={() => setActiveTab(cat)} className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === cat ? 'bg-amber-500 text-white shadow-lg shadow-amber-200' : 'bg-white text-slate-400 border border-slate-100'}`}>{cat}</button>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {menu.filter(i => activeTab === 'Semua' || i.category === activeTab).map(m => (
-                  <div key={m.id} onClick={() => {
-                    if (m.stock <= 0) return;
-                    const inCart = cart.find(x => x.id === m.id);
-                    setCart(inCart ? cart.map(x => x.id === m.id ? {...x, quantity: x.quantity + 1} : x) : [...cart, {...m, quantity: 1}]);
-                  }} className={`bg-white p-6 rounded-[2rem] border relative transition-all text-center shadow-sm ${m.stock <= 0 ? 'opacity-40 grayscale cursor-not-allowed' : 'hover:shadow-xl hover:border-amber-200 cursor-pointer active:scale-95'}`}>
-                    <div className="absolute top-4 right-4 text-[8px] font-black bg-slate-100 px-2 py-1 rounded-full uppercase">{m.stock <= 0 ? 'HABIS' : `STOK: ${m.stock}`}</div>
-                    <div className="text-5xl mb-3 mt-4">{m.img || '🍲'}</div>
-                    <p className="font-bold text-[10px] uppercase truncate text-slate-600 mb-1">{m.name}</p>
-                    <p className="text-amber-600 font-black text-[11px]">Rp {Number(m.price).toLocaleString()}</p>
-                  </div>
-                ))}
-              </div>
-            </main>
-            <aside className="w-[350px] bg-white border-l p-8 flex flex-col shadow-2xl">
-              <h2 className="text-[10px] font-black uppercase text-slate-400 mb-6 tracking-widest text-center flex items-center justify-center gap-2"><ShoppingBag size={14}/> Keranjang Belanja</h2>
-              <div className="flex-1 overflow-y-auto space-y-4 mb-6 scrollbar-hide">
-                {cart.length === 0 ? (
-                   <div className="h-full flex flex-col items-center justify-center text-slate-200 italic font-black text-[10px] uppercase">Belum ada menu</div>
-                ) : cart.map(item => (
-                  <div key={item.id} className="bg-slate-50 p-4 rounded-2xl flex justify-between items-center border border-slate-100">
-                    <div className="flex-1 min-w-0 mr-2"><p className="font-bold text-[10px] uppercase truncate text-slate-700">{item.name}</p><p className="text-[11px] font-black text-amber-600">Rp {(item.price * item.quantity).toLocaleString()}</p></div>
-                    <div className="flex items-center gap-2"><span className="font-black text-xs px-2 py-1 bg-white rounded-lg border text-slate-500">{item.quantity}x</span><button onClick={() => setCart(cart.filter(x => x.id !== item.id))} className="text-red-300 hover:text-red-500 transition-colors"><Trash2 size={16}/></button></div>
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-2 mb-6">
-                {['Tunai', 'QRIS'].map(m => (
-                  <button key={m} onClick={() => setPaymentMethod(m)} className={`py-4 rounded-xl border-2 transition-all flex flex-col items-center gap-1 font-black text-[10px] uppercase ${paymentMethod === m ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-300 border-slate-100'}`}>{m === 'Tunai' ? <Banknote size={16}/> : <Wallet size={16}/>} {m}</button>
-                ))}
-              </div>
-              <div className="pt-6 border-t-4 border-double border-slate-100">
-                <div className="flex justify-between items-center mb-6 text-slate-900 font-black italic text-3xl tracking-tighter text-center"><span>Rp</span><span>{cart.reduce((s, i) => s + (i.price * i.quantity), 0).toLocaleString()}</span></div>
-                <button onClick={handleCheckout} disabled={isSyncing || cart.length === 0} className={`w-full py-5 rounded-2xl font-black text-xs shadow-xl transition-all uppercase tracking-[0.2em] ${cart.length === 0 ? 'bg-slate-100 text-slate-300' : 'bg-amber-500 text-white shadow-amber-200 active:scale-95'}`}>{isSyncing ? 'SINKRON...' : `BAYAR SEKARANG`}</button>
-              </div>
-            </aside>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AdminPanel({ config, onRefresh }) {
-  const [isUpdating, setIsUpdating] = useState(false);
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      setIsUpdating(true); await updateQrisCloud(event.target.result);
-      alert("QRIS DIPERBARUI!"); onRefresh(); setIsUpdating(false);
-    };
-    reader.readAsDataURL(file);
-  };
-  return (
-    <main className="flex-1 p-10 bg-white overflow-y-auto scrollbar-hide">
-      <h1 className="text-4xl font-black mb-12 text-center uppercase tracking-tighter underline decoration-blue-500 decoration-8 italic underline-offset-8">Admin Control</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-        <button onClick={async () => { await updateShiftCloud(config.shiftStatus === 'OPEN' ? 'CLOSED' : 'OPEN'); onRefresh(); }} className={`p-10 border-4 border-dashed rounded-[3.5rem] flex flex-col items-center gap-4 transition-all active:scale-95 ${config.shiftStatus === 'OPEN' ? 'border-red-100 bg-red-50/10' : 'border-green-100 bg-green-50/10'}`}>
-          <Settings size={40} className={config.shiftStatus === 'OPEN' ? "text-red-500" : "text-green-500"} />
-          <span className="font-black text-xs uppercase tracking-widest text-slate-700">Shift: {config.shiftStatus}</span>
-        </button>
-        <div className="p-10 border-4 border-dashed border-slate-100 rounded-[3.5rem] flex flex-col items-center gap-4 bg-slate-50 text-center">
-          <Camera size={40} className="text-blue-500" />
-          <div className="flex gap-2 w-full">
-            <label className="flex-1 py-4 bg-blue-500 text-white rounded-2xl cursor-pointer shadow-lg shadow-blue-100 font-black text-[10px] uppercase">
-                {isUpdating ? "..." : "UPLOAD QRIS"}<input type="file" className="hidden" onChange={handleFileUpload} />
-            </label>
-            <button onClick={() => { const u = prompt("Link QRIS:"); if(u) updateQrisCloud(u).then(onRefresh); }} className="flex-1 py-4 bg-white border-2 border-slate-200 rounded-2xl hover:bg-slate-100 font-black text-[10px] uppercase">LINK</button>
-          </div>
-        </div>
-      </div>
-    </main>
-  );
-}
-
-function LoginScreen({ users, onLogin, onRefresh }) {
-  const [pin, setPin] = useState('');
-  return (
-    <div className="h-screen w-screen flex items-center justify-center bg-slate-100 p-4">
-      <div className="bg-white p-14 rounded-[4rem] shadow-2xl w-full max-w-sm text-center border-b-[12px] border-amber-500">
-        <div className="w-20 h-20 bg-amber-500 rounded-[1.5rem] flex items-center justify-center text-white mx-auto mb-10 font-black text-4xl italic shadow-xl shadow-amber-100">R</div>
-        <h2 className="text-3xl font-black mb-10 uppercase italic tracking-tighter text-slate-800">Soto Ra-Me23</h2>
-        <form onSubmit={(e) => { e.preventDefault(); const u = users.find(u => String(u.pin) === String(pin)); if(u) onLogin(u); else alert("PIN SALAH!"); setPin(''); }} className="space-y-5">
-          <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} className="w-full bg-slate-50 py-6 rounded-3xl text-center text-4xl font-black outline-none border-4 border-transparent focus:border-amber-500 transition-all placeholder-slate-200 text-slate-800" placeholder="••••" autoFocus />
-          <button type="submit" className="w-full py-5 bg-slate-900 text-white rounded-3xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl active:scale-95 transition-all shadow-slate-200">Masuk Kasir</button>
-        </form>
-        <button onClick={onRefresh} className="mt-10 text-slate-300 hover:text-amber-500 transition-colors"><RefreshCw size={22} className="mx-auto" /></button>
-      </div>
     </div>
   );
 }
