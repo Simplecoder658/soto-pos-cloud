@@ -1,71 +1,88 @@
-// db.js
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSeKdIx5PdWyiDYf81MqQpc91qaS3TUdoMoFpHJmqEKyJCTGOEEf9XzifBWmx9LLf9sQ/exec";
-const SECRET_TOKEN = "BQsi2277"; 
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzoYiYIdjogrzZJe_28kxKxPCUpsIDBzohCSEqFCCbIIjL85pHlvPv3X5B7LE_I0eBL9A/exec";
+const SECRET_TOKEN = "BQsi2277";
 
+/**
+ * Mengambil data lengkap (Menu, Users, Config, UsedOrders)
+ */
 export const fetchCloudData = async () => {
   try {
-    const response = await fetch(`${SCRIPT_URL}?action=getData`);
-    if (!response.ok) throw new Error("Gagal mengambil data");
+    const response = await fetch(`${WEB_APP_URL}?action=getData`);
     const data = await response.json();
-    return {
-      menu: data.menu || [],
-      users: data.users || [],
-      qris: data.qris || "",
-      exitCode: data.exitCode || "",
-      shiftStatus: data.shiftStatus || "CLOSED",
-      usedOrders: data.usedOrders || []
-    };
+    return data;
   } catch (error) {
-    console.error("Cloud Error:", error);
+    console.error("Gagal mengambil data dari Cloud:", error);
     return null;
   }
 };
 
-export const saveOrderToSheet = async (cart, total, method, kasir, orderNumber) => {
+/**
+ * Menyimpan pesanan baru ke Google Sheets
+ * @param {Object} orderData - Berisi no_pesanan, items (string), total, method, kasir, cart (array untuk potong stok)
+ */
+export const saveOrderToSheet = async (orderData) => {
   try {
-    // Format item untuk kolom "Items" di Sheet (Contoh: Soto Ayam (Singkong) (2x))
-    const itemsString = cart.map(i => `${i.name} (${i.quantity}x)`).join(", ");
-    
     const payload = {
-      action: "addOrder",
       token: SECRET_TOKEN,
-      no_pesanan: String(orderNumber),
-      items: itemsString,
-      total: total,
-      method: method,
-      kasir: kasir,
-      timestamp: new Date().toLocaleString("id-ID"),
-      cart: cart // dikirim untuk potong stok di sheet Menu
+      action: "addOrder",
+      ...orderData,
+      timestamp: new Date().toISOString()
     };
 
-    await fetch(SCRIPT_URL, {
+    const response = await fetch(WEB_APP_URL, {
       method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
-    return true;
+
+    const result = await response.json();
+    return result; // Mengembalikan { status: "OK", message: "..." }
   } catch (error) {
-    console.error("Simpan Pesanan Gagal:", error);
-    throw error;
+    console.error("Gagal menyimpan pesanan:", error);
+    return { status: "ERROR", message: error.message };
   }
 };
 
-export const updateShiftCloud = async (newStatus) => {
+/**
+ * Mengupdate status Shift (Buka/Tutup)
+ */
+export const updateShiftCloud = async (status) => {
   try {
-    await fetch(SCRIPT_URL, {
+    const payload = {
+      token: SECRET_TOKEN,
+      action: "updateShift",
+      status: status // "OPEN" atau "CLOSED"
+    };
+
+    const response = await fetch(WEB_APP_URL, {
       method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "updateShift",
-        token: SECRET_TOKEN,
-        status: newStatus
-      })
+      body: JSON.stringify(payload),
     });
-    return true;
+
+    return await response.json();
   } catch (error) {
-    console.error("Update Shift Gagal:", error);
-    return false;
+    console.error("Gagal update shift:", error);
+    return { status: "ERROR" };
+  }
+};
+
+/**
+ * Mengupdate Link/URL QRIS (Sel B2)
+ */
+export const updateQrisUrl = async (url) => {
+  try {
+    const payload = {
+      token: SECRET_TOKEN,
+      action: "updateQris",
+      url: url
+    };
+
+    const response = await fetch(WEB_APP_URL, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Gagal update QRIS:", error);
+    return { status: "ERROR" };
   }
 };
