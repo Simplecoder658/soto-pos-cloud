@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LayoutGrid, Settings, Trash2, LogOut, RefreshCw, ShoppingBag, Printer, AlertCircle, X } from 'lucide-react';
 import { fetchCloudData, saveOrderToSheet, updateShiftCloud } from './db';
 
+// Loader PDF untuk struk
 const loadJsPDF = () => {
   return new Promise((resolve) => {
     if (window.jspdf) return resolve(window.jspdf);
@@ -27,6 +28,8 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
   const [cloudUsedNumbers, setCloudUsedNumbers] = useState([]);
+  
+  // --- STATE MODAL ADDON ---
   const [addonModal, setAddonModal] = useState(null);
 
   const initApp = async () => {
@@ -51,16 +54,13 @@ export default function App() {
 
   const isNumberUsed = cloudUsedNumbers.includes(String(orderNumber));
 
-  // ==========================================
-  // LOGIKA INTI: HARGA & PENAMAAN (FIXED)
-  // ==========================================
+  // --- LOGIKA HARGA & PENAMAAN (FIXED) ---
   const addToCart = (item, addon = "") => {
     let finalName = item.name;
     let finalPrice = Number(item.price);
 
     const isPorsiAdik = item.id === "M3" || item.id === "M4";
 
-    // 1. Logika Penamaan
     if (addon === "Lontong") {
       finalName = `${item.name} (Ori)`;
     } else if (addon === "Singkong") {
@@ -69,14 +69,13 @@ export default function App() {
       finalName = `${item.name} (Nasi)`;
     }
 
-    // 2. Logika Harga (Lontong = Base, Nasi = Lontong + 1rb, Singkong = Lontong - 1rb)
     if (!isPorsiAdik) {
       if (addon === "Singkong") {
         finalPrice = Number(item.price) - 1000;
       } else if (addon === "Nasi") {
         finalPrice = Number(item.price) + 1000;
       }
-      // Jika Lontong (Ori), harga tetap sesuai item.price di Sheets
+      // Lontong tetap sesuai item.price (Base)
     }
 
     const itemKey = finalName;
@@ -87,12 +86,13 @@ export default function App() {
     } else {
       setCart([...cart, { ...item, name: finalName, price: finalPrice, quantity: 1, itemKey }]);
     }
-    setAddonModal(null);
+    setAddonModal(null); // Tutup modal setelah pilih
   };
 
   const handleMenuClick = (m) => {
-    if (m.options && m.options !== "-") {
-      setAddonModal(m); // MEMUNCULKAN WINDOW ADDON
+    // Memastikan modal muncul jika kolom options di Google Sheet tidak kosong
+    if (m.options && m.options !== "" && m.options !== "-") {
+      setAddonModal(m);
     } else {
       addToCart(m);
     }
@@ -133,6 +133,7 @@ export default function App() {
 
   return (
     <div className="h-screen bg-slate-50 flex overflow-hidden font-sans text-slate-900">
+      {/* SIDEBAR */}
       <nav className="w-20 bg-white border-r flex flex-col items-center py-8 justify-between shadow-sm">
         <div className="flex flex-col gap-8">
           <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg font-black italic text-xl">R</div>
@@ -195,7 +196,7 @@ export default function App() {
         )}
       </div>
 
-      {/* WINDOW ADDON (PILIHAN KARBO) - FIXED */}
+      {/* MODAL PILIHAN (NASI, LONTONG, SINGKONG) */}
       {addonModal && (
         <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-[3.5rem] p-10 text-center border-t-[12px] border-amber-500 shadow-2xl">
@@ -210,17 +211,13 @@ export default function App() {
                   + {opt.trim()}
                 </button>
               ))}
-              <button 
-                onClick={() => setAddonModal(null)} 
-                className="w-full py-4 text-slate-300 font-black uppercase text-[10px]"
-              >
-                Batal
-              </button>
+              <button onClick={() => setAddonModal(null)} className="w-full py-4 text-slate-300 font-black uppercase text-[10px]">Batal</button>
             </div>
           </div>
         </div>
       )}
 
+      {/* MODAL QRIS & RECEIPT */}
       {showQRModal && (
         <div className="fixed inset-0 z-[120] bg-black/80 flex items-center justify-center p-4">
           <div className="bg-white rounded-[3rem] p-8 w-full max-w-sm text-center">
