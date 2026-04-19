@@ -57,25 +57,50 @@ export default function App() {
     let finalName = item.name;
     let finalPrice = Number(item.price);
 
-    // LOGIKA SESUAI PERMINTAAN BOS
-    if (addon === "Nasi") {
-      finalPrice = Number(item.price); // Nasi Mahal (Base Price dari Sheet)
-      finalName = `${item.name} (Nasi)`;
-    } else if (addon === "Lontong") {
-      finalPrice = Number(item.price) - 1000; // Lontong Tengah
-      finalName = `${item.name} (Ori)`; // Tambahan (Ori) sesuai request Bos
+    // 1. CEK IDENTITAS MENU
+    const isPorsiAdik = item.id === "M3" || item.id === "M4";
+
+    // 2. LOGIKA PENAMAAN
+    if (addon === "Lontong") {
+      finalName = `${item.name} (Ori)`; // Lontong adalah Harga Original
     } else if (addon === "Singkong") {
-      finalPrice = Number(item.price) - 2000; // Singkong Murah
       finalName = `${item.name} (Singkong)`;
+    } else if (addon === "Nasi") {
+      finalName = `${item.name} (Nasi)`;
     }
 
-    const itemKey = finalName;
+    // 3. LOGIKA HARGA (Lontong - 1000 = Singkong, Lontong + 1000 = Nasi)
+    if (!isPorsiAdik) {
+      // Berlaku untuk M1, M2, M5
+      if (addon === "Singkong") {
+        finalPrice = Number(item.price) - 1000; // Singkong lebih murah 1rb dari Lontong
+      } else if (addon === "Nasi") {
+        finalPrice = Number(item.price) + 1000; // Nasi lebih mahal 1rb dari Lontong
+      } else {
+        finalPrice = Number(item.price); // Lontong = Harga Asli (Base)
+      }
+    } else {
+      // KHUSUS M3 & M4: Harga FLAT sesuai database (tidak ada tambah/kurang)
+      finalPrice = Number(item.price);
+    }
+
+    // 4. PROSES MASUK KERANJANG
+    const itemKey = finalName; 
     const existing = cart.find(x => x.itemKey === itemKey);
     
     if (existing) {
-      setCart(cart.map(x => x.itemKey === itemKey ? {...x, quantity: x.quantity + 1} : x));
+      setCart(cart.map(x => x.itemKey === itemKey 
+        ? {...x, quantity: x.quantity + 1} 
+        : x
+      ));
     } else {
-      setCart([...cart, { ...item, name: finalName, price: finalPrice, quantity: 1, itemKey }]);
+      setCart([...cart, { 
+        ...item, 
+        name: finalName, 
+        price: finalPrice, 
+        quantity: 1, 
+        itemKey 
+      }]);
     }
     setAddonModal(null);
   };
