@@ -33,14 +33,12 @@ export default function App() {
   const cetakStruk = (data, items) => {
     const isAndroid = /Android/i.test(navigator.userAgent);
     if (isAndroid) {
-      // JALUR RAWBT (HUAWEI/ANDROID)
       let t = `SOTO RA-ME23\n#${data.no_pesanan}\n--------------------------------\n`;
       t += `Kasir: ${data.kasir}\n--------------------------------\n`;
       items.forEach(i => { t += `${i.name}\n${i.qty}x @${i.price} = ${i.price*i.qty}\n`; });
       t += `--------------------------------\nTOTAL: Rp ${data.total.toLocaleString()}\n\n\n\n`;
       window.location.href = "rawbt:base64," + btoa(unescape(encodeURIComponent(t)));
     } else {
-      // JALUR LAPTOP (CHROME DEFAULT)
       const p = window.open('', '_blank', 'width=300');
       p.document.write(`<html><body style="font-family:monospace;width:58mm;padding:3mm;font-size:12px;">
         <center><b>SOTO RA-ME23</b><br><b style="font-size:20px;">#${data.no_pesanan}</b></center><hr>
@@ -58,7 +56,6 @@ export default function App() {
 
     if (type === "Lontong") {
       finalName += " (Ori-Lontong)";
-      // Harga Lontong adalah harga dasar (Original)
     } 
     else if (type === "Nasi") { 
       finalName += " (Nasi)"; 
@@ -102,8 +99,7 @@ export default function App() {
   if (!currentUser) return <Login users={users} onLogin={setCurrentUser} />;
 
   return (
-    <div className="h-screen w-full bg-slate-50 flex overflow-hidden font-sans select-none">
-      {/* SIDEBAR */}
+    <div className="h-screen w-full bg-slate-50 flex overflow-hidden font-sans select-none text-slate-900">
       <nav className="w-16 bg-white border-r flex flex-col items-center py-6 justify-between shadow-sm">
         <div className="flex flex-col gap-6">
           <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white font-black italic shadow-lg shadow-amber-200">R</div>
@@ -113,10 +109,9 @@ export default function App() {
         <button onClick={() => setCurrentUser(null)} className="text-slate-200 p-2"><LogOut/></button>
       </nav>
 
-      {/* MAIN */}
       <div className="flex-1 flex overflow-hidden">
         {view === 'admin' ? (
-          <div className="p-8 w-full"><h1 className="text-2xl font-black italic mb-6 uppercase">Admin Control</h1>
+          <div className="p-8 w-full"><h1 className="text-2xl font-black italic mb-6">ADMIN</h1>
             <button onClick={async () => { await updateShiftCloud(config.shiftStatus === 'OPEN' ? 'CLOSED' : 'OPEN'); initData(); }} 
                     className={`w-full py-6 rounded-2xl font-black text-white ${config.shiftStatus === 'OPEN' ? 'bg-red-500' : 'bg-green-500'}`}>
               {config.shiftStatus === 'OPEN' ? 'TUTUP SHIFT' : 'BUKA SHIFT'}
@@ -126,7 +121,7 @@ export default function App() {
           <>
             <main className="flex-1 p-6 overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
-                <h1 className="text-xl font-black uppercase italic border-l-4 border-amber-500 pl-3 leading-none">Menu Utama</h1>
+                <h1 className="text-xl font-black uppercase italic border-l-4 border-amber-500 pl-3 leading-none">Menu</h1>
                 <button onClick={initData} className="text-slate-200"><RefreshCw size={20}/></button>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -168,17 +163,17 @@ export default function App() {
         )}
       </div>
 
-      {/* MODAL KARBO (TANPA STK) */}
+      {/* MODAL KARBO TANPA STK */}
       {addonModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xs rounded-[2.5rem] p-6 shadow-2xl">
+          <div className="bg-white w-full max-w-xs rounded-[2.5rem] p-6 shadow-2xl overflow-hidden">
             <h2 className="text-lg font-black uppercase italic mb-4 text-center">{addonModal.name}</h2>
             <div className="grid grid-cols-1 gap-2">
               {['Nasi', 'Lontong', 'Singkong'].map(type => (
-                <button key={type} onClick={() => handleAddToCart(addonModal, type)} className="w-full flex items-center justify-between p-4 rounded-2xl bg-slate-50 border-2 border-transparent active:border-amber-200 transition-all">
-                  <span className="font-bold uppercase text-xs">{type}</span>
-                  <span className="text-[9px] font-black px-2 py-1 rounded-full bg-white border text-slate-900">
-                    {addonModal.id === "M3" || addonModal.id === "M4" ? 'Tetap' : (type === 'Nasi' ? '+1k' : type === 'Singkong' ? '-1k' : 'Ori')}
+                <button key={type} onClick={() => handleAddToCart(addonModal, type)} className="w-full flex items-center justify-between p-4 rounded-2xl border-2 bg-slate-50 border-transparent active:border-amber-200 transition-all">
+                  <span className="font-bold uppercase text-xs">{type === 'Lontong' ? 'Ori-Lontong' : type}</span>
+                  <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-white border text-slate-900">
+                    {addonModal.id === "M3" || addonModal.id === "M4" ? 'Tetap' : (type === 'Nasi' ? '+1k' : type === 'Lontong' ? 'Ori' : '-1k')}
                   </span>
                 </button>
               ))}
@@ -188,7 +183,6 @@ export default function App() {
         </div>
       )}
 
-      {/* SUCCESS MODAL */}
       {showReceipt && (
         <div className="fixed inset-0 z-[60] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xs rounded-[3rem] p-8 text-center border-t-8 border-green-500">
