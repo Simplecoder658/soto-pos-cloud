@@ -56,10 +56,18 @@ export default function App() {
     let finalPrice = Number(item.price);
     const isAdik = item.id === "M3" || item.id === "M4";
 
-    if (type === "Lontong") finalName += " (Ori)";
-    else if (type === "Nasi") { finalName += " (Nasi)"; if (!isAdik) finalPrice += 1000; }
-    else if (type === "Singkong") { finalName += " (Singkong)"; if (!isAdik) finalPrice -= 1000; }
-    else if (type === "STK") { finalName += " (STK)"; if (!isAdik) finalPrice -= 1000; }
+    if (type === "Lontong") {
+      finalName += " (Ori-Lontong)";
+      // Harga Lontong adalah harga dasar (Original)
+    } 
+    else if (type === "Nasi") { 
+      finalName += " (Nasi)"; 
+      if (!isAdik) finalPrice += 1000; 
+    }
+    else if (type === "Singkong") { 
+      finalName += " (Singkong)"; 
+      if (!isAdik) finalPrice -= 1000; 
+    }
 
     const key = finalName;
     setCart(prev => {
@@ -95,6 +103,7 @@ export default function App() {
 
   return (
     <div className="h-screen w-full bg-slate-50 flex overflow-hidden font-sans select-none">
+      {/* SIDEBAR */}
       <nav className="w-16 bg-white border-r flex flex-col items-center py-6 justify-between shadow-sm">
         <div className="flex flex-col gap-6">
           <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white font-black italic shadow-lg shadow-amber-200">R</div>
@@ -104,9 +113,10 @@ export default function App() {
         <button onClick={() => setCurrentUser(null)} className="text-slate-200 p-2"><LogOut/></button>
       </nav>
 
+      {/* MAIN */}
       <div className="flex-1 flex overflow-hidden">
         {view === 'admin' ? (
-          <div className="p-8 w-full"><h1 className="text-2xl font-black italic mb-6">ADMIN</h1>
+          <div className="p-8 w-full"><h1 className="text-2xl font-black italic mb-6 uppercase">Admin Control</h1>
             <button onClick={async () => { await updateShiftCloud(config.shiftStatus === 'OPEN' ? 'CLOSED' : 'OPEN'); initData(); }} 
                     className={`w-full py-6 rounded-2xl font-black text-white ${config.shiftStatus === 'OPEN' ? 'bg-red-500' : 'bg-green-500'}`}>
               {config.shiftStatus === 'OPEN' ? 'TUTUP SHIFT' : 'BUKA SHIFT'}
@@ -116,7 +126,7 @@ export default function App() {
           <>
             <main className="flex-1 p-6 overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
-                <h1 className="text-xl font-black uppercase italic border-l-4 border-amber-500 pl-3 leading-none">Menu</h1>
+                <h1 className="text-xl font-black uppercase italic border-l-4 border-amber-500 pl-3 leading-none">Menu Utama</h1>
                 <button onClick={initData} className="text-slate-200"><RefreshCw size={20}/></button>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -158,16 +168,17 @@ export default function App() {
         )}
       </div>
 
+      {/* MODAL KARBO (TANPA STK) */}
       {addonModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xs rounded-[2.5rem] p-6 shadow-2xl overflow-hidden">
+          <div className="bg-white w-full max-w-xs rounded-[2.5rem] p-6 shadow-2xl">
             <h2 className="text-lg font-black uppercase italic mb-4 text-center">{addonModal.name}</h2>
             <div className="grid grid-cols-1 gap-2">
-              {['Nasi', 'Lontong', 'Singkong', 'STK'].map(type => (
-                <button key={type} onClick={() => handleAddToCart(addonModal, type)} className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${type==='STK'?'bg-slate-900 text-white border-slate-900':'bg-slate-50 border-transparent'}`}>
+              {['Nasi', 'Lontong', 'Singkong'].map(type => (
+                <button key={type} onClick={() => handleAddToCart(addonModal, type)} className="w-full flex items-center justify-between p-4 rounded-2xl bg-slate-50 border-2 border-transparent active:border-amber-200 transition-all">
                   <span className="font-bold uppercase text-xs">{type}</span>
-                  <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-white border text-slate-900">
-                    {addonModal.id === "M3" || addonModal.id === "M4" ? 'Tetap' : (type === 'Nasi' ? '+1k' : type === 'Lontong' ? 'Ori' : '-1k')}
+                  <span className="text-[9px] font-black px-2 py-1 rounded-full bg-white border text-slate-900">
+                    {addonModal.id === "M3" || addonModal.id === "M4" ? 'Tetap' : (type === 'Nasi' ? '+1k' : type === 'Singkong' ? '-1k' : 'Ori')}
                   </span>
                 </button>
               ))}
@@ -177,6 +188,7 @@ export default function App() {
         </div>
       )}
 
+      {/* SUCCESS MODAL */}
       {showReceipt && (
         <div className="fixed inset-0 z-[60] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xs rounded-[3rem] p-8 text-center border-t-8 border-green-500">
