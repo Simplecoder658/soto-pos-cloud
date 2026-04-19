@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { LayoutGrid, Settings, Trash2, LogOut, RefreshCw, ShoppingBag, Printer, AlertCircle, X } from 'lucide-react';
 import { fetchCloudData, saveOrderToSheet, updateShiftCloud } from './db';
 
-// Loader PDF untuk struk
 const loadJsPDF = () => {
   return new Promise((resolve) => {
     if (window.jspdf) return resolve(window.jspdf);
@@ -52,63 +51,48 @@ export default function App() {
 
   const isNumberUsed = cloudUsedNumbers.includes(String(orderNumber));
 
-  // LOGIKA ADD TO CART (NASI MAHAL, LONTONG TENGAH/ORI, SINGKONG MURAH)
+  // ==========================================
+  // LOGIKA INTI: HARGA & PENAMAAN (FIXED)
+  // ==========================================
   const addToCart = (item, addon = "") => {
     let finalName = item.name;
     let finalPrice = Number(item.price);
 
-    // 1. CEK IDENTITAS MENU
     const isPorsiAdik = item.id === "M3" || item.id === "M4";
 
-    // 2. LOGIKA PENAMAAN
+    // 1. Logika Penamaan
     if (addon === "Lontong") {
-      finalName = `${item.name} (Ori)`; // Lontong adalah Harga Original
+      finalName = `${item.name} (Ori)`;
     } else if (addon === "Singkong") {
       finalName = `${item.name} (Singkong)`;
     } else if (addon === "Nasi") {
       finalName = `${item.name} (Nasi)`;
     }
 
-    // 3. LOGIKA HARGA (Lontong - 1000 = Singkong, Lontong + 1000 = Nasi)
+    // 2. Logika Harga (Lontong = Base, Nasi = Lontong + 1rb, Singkong = Lontong - 1rb)
     if (!isPorsiAdik) {
-      // Berlaku untuk M1, M2, M5
       if (addon === "Singkong") {
-        finalPrice = Number(item.price) - 1000; // Singkong lebih murah 1rb dari Lontong
+        finalPrice = Number(item.price) - 1000;
       } else if (addon === "Nasi") {
-        finalPrice = Number(item.price) + 1000; // Nasi lebih mahal 1rb dari Lontong
-      } else {
-        finalPrice = Number(item.price); // Lontong = Harga Asli (Base)
+        finalPrice = Number(item.price) + 1000;
       }
-    } else {
-      // KHUSUS M3 & M4: Harga FLAT sesuai database (tidak ada tambah/kurang)
-      finalPrice = Number(item.price);
+      // Jika Lontong (Ori), harga tetap sesuai item.price di Sheets
     }
 
-    // 4. PROSES MASUK KERANJANG
-    const itemKey = finalName; 
+    const itemKey = finalName;
     const existing = cart.find(x => x.itemKey === itemKey);
     
     if (existing) {
-      setCart(cart.map(x => x.itemKey === itemKey 
-        ? {...x, quantity: x.quantity + 1} 
-        : x
-      ));
+      setCart(cart.map(x => x.itemKey === itemKey ? {...x, quantity: x.quantity + 1} : x));
     } else {
-      setCart([...cart, { 
-        ...item, 
-        name: finalName, 
-        price: finalPrice, 
-        quantity: 1, 
-        itemKey 
-      }]);
+      setCart([...cart, { ...item, name: finalName, price: finalPrice, quantity: 1, itemKey }]);
     }
     setAddonModal(null);
   };
 
   const handleMenuClick = (m) => {
-    // Cek apakah menu butuh pilihan karbo (ada di kolom options)
     if (m.options && m.options !== "-") {
-      setAddonModal(m);
+      setAddonModal(m); // MEMUNCULKAN WINDOW ADDON
     } else {
       addToCart(m);
     }
@@ -149,7 +133,6 @@ export default function App() {
 
   return (
     <div className="h-screen bg-slate-50 flex overflow-hidden font-sans text-slate-900">
-      {/* SIDEBAR */}
       <nav className="w-20 bg-white border-r flex flex-col items-center py-8 justify-between shadow-sm">
         <div className="flex flex-col gap-8">
           <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg font-black italic text-xl">R</div>
@@ -212,24 +195,32 @@ export default function App() {
         )}
       </div>
 
-      {/* MODAL ADDON (NASI / LONTONG / SINGKONG) */}
+      {/* WINDOW ADDON (PILIHAN KARBO) - FIXED */}
       {addonModal && (
         <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-[3.5rem] p-10 text-center border-t-[12px] border-amber-500 shadow-2xl">
             <h2 className="text-xl font-black mb-8 uppercase italic">{addonModal.name}</h2>
             <div className="space-y-3">
               {addonModal.options.split(',').map(opt => (
-                <button key={opt.trim()} onClick={() => addToCart(addonModal, opt.trim())} className="w-full py-5 bg-slate-50 hover:bg-amber-500 hover:text-white rounded-2xl font-black uppercase transition-all border-2">
+                <button 
+                  key={opt.trim()} 
+                  onClick={() => addToCart(addonModal, opt.trim())} 
+                  className="w-full py-5 bg-slate-50 hover:bg-amber-500 hover:text-white rounded-2xl font-black uppercase transition-all border-2"
+                >
                   + {opt.trim()}
                 </button>
               ))}
-              <button onClick={() => setAddonModal(null)} className="w-full py-4 text-slate-300 font-black uppercase text-[10px]">Batal</button>
+              <button 
+                onClick={() => setAddonModal(null)} 
+                className="w-full py-4 text-slate-300 font-black uppercase text-[10px]"
+              >
+                Batal
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL QRIS & RECEIPT */}
       {showQRModal && (
         <div className="fixed inset-0 z-[120] bg-black/80 flex items-center justify-center p-4">
           <div className="bg-white rounded-[3rem] p-8 w-full max-w-sm text-center">
@@ -254,7 +245,6 @@ export default function App() {
   );
 }
 
-// ... LoginScreen & AdminPanel tetap sama ...
 function AdminPanel({ config, onRefresh, usedNumbers }) {
   return (
     <main className="flex-1 p-10 bg-white overflow-y-auto">
