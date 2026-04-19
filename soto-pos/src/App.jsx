@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid, Settings, Trash2, LogOut, RefreshCw, ShoppingBag, Printer, AlertCircle, X } from 'lucide-react';
+import { LayoutGrid, Settings, Trash2, LogOut, RefreshCw, ShoppingBag, Printer, AlertCircle, X, CheckCircle2 } from 'lucide-react';
 import { fetchCloudData, saveOrderToSheet, updateShiftCloud } from './db';
 
-// Loader PDF untuk struk
 const loadJsPDF = () => {
   return new Promise((resolve) => {
     if (window.jspdf) return resolve(window.jspdf);
@@ -28,8 +27,6 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
   const [cloudUsedNumbers, setCloudUsedNumbers] = useState([]);
-  
-  // --- STATE MODAL ADDON ---
   const [addonModal, setAddonModal] = useState(null);
 
   const initApp = async () => {
@@ -54,29 +51,23 @@ export default function App() {
 
   const isNumberUsed = cloudUsedNumbers.includes(String(orderNumber));
 
-  // --- LOGIKA HARGA & PENAMAAN (FIXED) ---
+  // --- LOGIKA HARGA REWORK (Lontong = Base) ---
+  const calculatePrice = (item, type) => {
+    const base = Number(item.price);
+    const isPorsiAdik = item.id === "M3" || item.id === "M4";
+    if (isPorsiAdik) return base;
+    if (type === "Nasi") return base + 1000;
+    if (type === "Singkong") return base - 1000;
+    return base; // Lontong
+  };
+
   const addToCart = (item, addon = "") => {
     let finalName = item.name;
-    let finalPrice = Number(item.price);
+    let finalPrice = calculatePrice(item, addon);
 
-    const isPorsiAdik = item.id === "M3" || item.id === "M4";
-
-    if (addon === "Lontong") {
-      finalName = `${item.name} (Ori)`;
-    } else if (addon === "Singkong") {
-      finalName = `${item.name} (Singkong)`;
-    } else if (addon === "Nasi") {
-      finalName = `${item.name} (Nasi)`;
-    }
-
-    if (!isPorsiAdik) {
-      if (addon === "Singkong") {
-        finalPrice = Number(item.price) - 1000;
-      } else if (addon === "Nasi") {
-        finalPrice = Number(item.price) + 1000;
-      }
-      // Lontong tetap sesuai item.price (Base)
-    }
+    if (addon === "Lontong") finalName += " (Ori)";
+    else if (addon === "Singkong") finalName += " (Singkong)";
+    else if (addon === "Nasi") finalName += " (Nasi)";
 
     const itemKey = finalName;
     const existing = cart.find(x => x.itemKey === itemKey);
@@ -86,11 +77,10 @@ export default function App() {
     } else {
       setCart([...cart, { ...item, name: finalName, price: finalPrice, quantity: 1, itemKey }]);
     }
-    setAddonModal(null); // Tutup modal setelah pilih
+    setAddonModal(null);
   };
 
   const handleMenuClick = (m) => {
-    // Memastikan modal muncul jika kolom options di Google Sheet tidak kosong
     if (m.options && m.options !== "" && m.options !== "-") {
       setAddonModal(m);
     } else {
@@ -98,15 +88,15 @@ export default function App() {
     }
   };
 
+  // ... (handleCheckout & handleCetakPDF tetap sama)
   const handleCheckout = async () => {
     if (cart.length === 0 || !orderNumber || isNumberUsed) return;
     setIsSyncing(true);
     try {
       const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
-      const orderData = { no: orderNumber, date: new Date().toLocaleString('id-ID'), items: [...cart], total, method: paymentMethod, kasir: currentUser.username };
       await saveOrderToSheet(cart, total, paymentMethod, currentUser.username, orderNumber);
       setCloudUsedNumbers([...cloudUsedNumbers, String(orderNumber)]);
-      setLastOrder(orderData);
+      setLastOrder({ no: orderNumber, date: new Date().toLocaleString('id-ID'), items: [...cart], total });
       setCart([]); setOrderNumber(""); setShowQRModal(false); setShowReceipt(true);
     } catch (e) { alert("Error simpan data!"); } finally { setIsSyncing(false); }
   };
@@ -121,7 +111,7 @@ export default function App() {
     let y = 35;
     lastOrder.items.forEach(i => {
       doc.text(`${i.name.substring(0,22)}`, 5, y);
-      doc.text(`${i.quantity}x ${ (i.price * i.quantity).toLocaleString() }`, 53, y + 4, { align: "right" });
+      doc.text(`${i.quantity}x ${(i.price * i.quantity).toLocaleString()}`, 53, y + 4, { align: "right" });
       y += 8;
     });
     doc.setFont("courier", "bold").text(`TOTAL: Rp ${lastOrder.total.toLocaleString()}`, 5, y + 5);
@@ -133,7 +123,6 @@ export default function App() {
 
   return (
     <div className="h-screen bg-slate-50 flex overflow-hidden font-sans text-slate-900">
-      {/* SIDEBAR */}
       <nav className="w-20 bg-white border-r flex flex-col items-center py-8 justify-between shadow-sm">
         <div className="flex flex-col gap-8">
           <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-lg font-black italic text-xl">R</div>
@@ -196,28 +185,57 @@ export default function App() {
         )}
       </div>
 
-      {/* MODAL PILIHAN (NASI, LONTONG, SINGKONG) */}
+      {/* REWORKED MODAL PILIHAN KARBO */}
       {addonModal && (
-        <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-[3.5rem] p-10 text-center border-t-[12px] border-amber-500 shadow-2xl">
-            <h2 className="text-xl font-black mb-8 uppercase italic">{addonModal.name}</h2>
-            <div className="space-y-3">
-              {addonModal.options.split(',').map(opt => (
-                <button 
-                  key={opt.trim()} 
-                  onClick={() => addToCart(addonModal, opt.trim())} 
-                  className="w-full py-5 bg-slate-50 hover:bg-amber-500 hover:text-white rounded-2xl font-black uppercase transition-all border-2"
-                >
-                  + {opt.trim()}
-                </button>
-              ))}
-              <button onClick={() => setAddonModal(null)} className="w-full py-4 text-slate-300 font-black uppercase text-[10px]">Batal</button>
+        <div className="fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden border border-slate-100">
+            <div className="bg-amber-500 p-6 text-center text-white">
+              <p className="text-[10px] uppercase font-black tracking-widest opacity-80 mb-1">Pilih Karbohidrat</p>
+              <h2 className="text-xl font-black uppercase italic">{addonModal.name}</h2>
+            </div>
+            
+            <div className="p-6 space-y-3">
+              {addonModal.options.split(',').map(opt => {
+                const type = opt.trim();
+                const currentPrice = calculatePrice(addonModal, type);
+                return (
+                  <button 
+                    key={type} 
+                    onClick={() => addToCart(addonModal, type)} 
+                    className="w-full group flex items-center justify-between p-4 bg-slate-50 hover:bg-amber-50 border-2 border-transparent hover:border-amber-200 rounded-2xl transition-all"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                        {type === 'Nasi' ? '🍚' : type === 'Lontong' ? '📦' : '🍠'}
+                      </div>
+                      <div className="text-left">
+                        <p className="font-black text-xs uppercase text-slate-700">{type} {type === 'Lontong' ? '(ORI)' : ''}</p>
+                        <p className="text-[10px] font-bold text-slate-400">Porsi Standar</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-amber-600">Rp {currentPrice.toLocaleString()}</p>
+                      {type === 'Nasi' && !(addonModal.id === "M3" || addonModal.id === "M4") && <p className="text-[8px] font-black text-red-400">+1.000</p>}
+                      {type === 'Singkong' && !(addonModal.id === "M3" || addonModal.id === "M4") && <p className="text-[8px] font-black text-green-500">-1.000</p>}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="px-6 pb-6">
+              <button 
+                onClick={() => setAddonModal(null)} 
+                className="w-full py-3 bg-slate-100 text-slate-400 rounded-xl font-black uppercase text-[10px] hover:bg-red-50 hover:text-red-400 transition-colors"
+              >
+                Batal Pilih
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL QRIS & RECEIPT */}
+      {/* MODAL QRIS & RECEIPT (Tetap sama) */}
       {showQRModal && (
         <div className="fixed inset-0 z-[120] bg-black/80 flex items-center justify-center p-4">
           <div className="bg-white rounded-[3rem] p-8 w-full max-w-sm text-center">
@@ -242,6 +260,7 @@ export default function App() {
   );
 }
 
+// ... LoginScreen & AdminPanel tetap sama ...
 function AdminPanel({ config, onRefresh, usedNumbers }) {
   return (
     <main className="flex-1 p-10 bg-white overflow-y-auto">
