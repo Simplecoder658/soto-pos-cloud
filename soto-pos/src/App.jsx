@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid, Settings, Trash2, LogOut, RefreshCw, X, CheckCircle2, Printer } from 'lucide-react';
+import { LayoutGrid, Settings, Trash2, LogOut, RefreshCw, Printer, CheckCircle2 } from 'lucide-react';
 import { fetchCloudData, saveOrderToSheet, updateShiftCloud } from './db';
 
 export default function App() {
@@ -13,6 +13,7 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const [orderNo, setOrderNo] = useState("");
   const [payMethod, setPayMethod] = useState('Tunai');
+  const [discount, setDiscount] = useState(0); // FITUR DISKON
   const [isSync, setIsSync] = useState(false);
   const [addonModal, setAddonModal] = useState(null); 
   const [showReceipt, setShowReceipt] = useState(null); 
@@ -30,20 +31,32 @@ export default function App() {
 
   useEffect(() => { initData(); }, []);
 
-  const cetakStruk = (data, items) => {
+  const cetakStruk = (data, items, disc) => {
     const isAndroid = /Android/i.test(navigator.userAgent);
+    const subtotal = items.reduce((s, i) => s + (i.price * i.qty), 0);
+    const finalTotal = subtotal - disc;
+
     if (isAndroid) {
+      // JALUR RAWBT (HUAWEI)
       let t = `SOTO RA-ME23\n#${data.no_pesanan}\n--------------------------------\n`;
       t += `Kasir: ${data.kasir}\n--------------------------------\n`;
       items.forEach(i => { t += `${i.name}\n${i.qty}x @${i.price} = ${i.price*i.qty}\n`; });
-      t += `--------------------------------\nTOTAL: Rp ${data.total.toLocaleString()}\n\n\n\n`;
+      t += `--------------------------------\n`;
+      t += `Subtotal: Rp ${subtotal.toLocaleString()}\n`;
+      if (disc > 0) t += `Diskon  : -Rp ${disc.toLocaleString()}\n`;
+      t += `TOTAL   : Rp ${finalTotal.toLocaleString()}\n\n\n\n`;
       window.location.href = "rawbt:base64," + btoa(unescape(encodeURIComponent(t)));
     } else {
+      // JALUR LAPTOP (CHROME)
       const p = window.open('', '_blank', 'width=300');
       p.document.write(`<html><body style="font-family:monospace;width:58mm;padding:3mm;font-size:12px;">
-        <center><b>SOTO RA-ME23</b><br><b style="font-size:20px;">#${data.no_pesanan}</b></center><hr>
-        ${items.map(i => `<div>${i.name}<br>${i.qty}x @${i.price} = ${i.price*i.qty}</div>`).join('<br>')}
-        <hr><b>TOTAL: Rp ${data.total.toLocaleString()}</b><br>Kasir: ${data.kasir}<br><center>TERIMA KASIH</center>
+        <center><b>SOTO RA-ME23</b><br><b style="font-size:24px;">#${data.no_pesanan}</b></center><hr>
+        ${items.map(i => `<div style="margin-bottom:4px;">${i.name}<br>${i.qty}x @${i.price} = ${i.price*i.qty}</div>`).join('')}
+        <hr>
+        <div style="display:flex;justify-content:space-between"><span>Subtotal:</span><span>${subtotal.toLocaleString()}</span></div>
+        ${disc > 0 ? `<div style="display:flex;justify-content:space-between"><span>Diskon:</span><span>-${disc.toLocaleString()}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;margin-top:4px;"><span>TOTAL:</span><span>Rp ${finalTotal.toLocaleString()}</span></div>
+        <hr><center>TERIMA KASIH</center>
         <script>window.onload=function(){window.print();setTimeout(()=>{window.close()},500)}</script></body></html>`);
       p.document.close();
     }
@@ -54,17 +67,9 @@ export default function App() {
     let finalPrice = Number(item.price);
     const isAdik = item.id === "M3" || item.id === "M4";
 
-    if (type === "Lontong") {
-      finalName += " (Ori-Lontong)";
-    } 
-    else if (type === "Nasi") { 
-      finalName += " (Nasi)"; 
-      if (!isAdik) finalPrice += 1000; 
-    }
-    else if (type === "Singkong") { 
-      finalName += " (Singkong)"; 
-      if (!isAdik) finalPrice -= 1000; 
-    }
+    if (type === "Lontong") finalName += " (Ori-Lontong)";
+    else if (type === "Nasi") { finalName += " (Nasi)"; if (!isAdik) finalPrice += 1000; }
+    else if (type === "Singkong") { finalName += " (Singkong)"; if (!isAdik) finalPrice -= 1000; }
 
     const key = finalName;
     setCart(prev => {
@@ -76,21 +81,26 @@ export default function App() {
   };
 
   const handleCheckout = async () => {
+    const subtotal = cart.reduce((s, i) => s + (i.price * i.qty), 0);
+    const totalAkhir = subtotal - discount;
+
     if (cart.length === 0 || !orderNo || usedNumbers.includes(String(orderNo)) || isSync) return;
     setIsSync(true);
+
     const orderData = {
       no_pesanan: orderNo,
       items: cart.map(i => `${i.name} x${i.qty}`).join(", "),
-      total: cart.reduce((s, i) => s + (i.price * i.qty), 0),
+      total: totalAkhir,
       method: payMethod,
       kasir: currentUser.username,
       cart: cart.map(i => ({ id: i.id, quantity: i.qty }))
     };
+
     const res = await saveOrderToSheet(orderData);
     if (res.status === "OK") {
-      cetakStruk(orderData, cart);
+      cetakStruk(orderData, cart, discount);
       setShowReceipt(orderData);
-      setCart([]); setOrderNo(""); initData();
+      setCart([]); setOrderNo(""); setDiscount(0); initData();
     }
     setIsSync(false);
   };
@@ -102,7 +112,7 @@ export default function App() {
     <div className="h-screen w-full bg-slate-50 flex overflow-hidden font-sans select-none text-slate-900">
       <nav className="w-16 bg-white border-r flex flex-col items-center py-6 justify-between shadow-sm">
         <div className="flex flex-col gap-6">
-          <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white font-black italic shadow-lg shadow-amber-200">R</div>
+          <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white font-black italic shadow-lg">R</div>
           <button onClick={() => setView('pos')} className={`p-2 ${view === 'pos' ? 'text-amber-500' : 'text-slate-300'}`}><LayoutGrid/></button>
           {currentUser.role === 'admin' && <button onClick={() => setView('admin')} className={`p-2 ${view === 'admin' ? 'text-slate-900' : 'text-slate-300'}`}><Settings/></button>}
         </div>
@@ -121,14 +131,14 @@ export default function App() {
           <>
             <main className="flex-1 p-6 overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
-                <h1 className="text-xl font-black uppercase italic border-l-4 border-amber-500 pl-3 leading-none">Menu</h1>
+                <h1 className="text-xl font-black uppercase italic border-l-4 border-amber-500 pl-3">Menu</h1>
                 <button onClick={initData} className="text-slate-200"><RefreshCw size={20}/></button>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {menu.map(m => (
                   <div key={m.id} onClick={() => m.options ? setAddonModal(m) : handleAddToCart(m)} className="bg-white p-6 rounded-[2rem] border shadow-sm active:scale-95 transition-all text-center">
                     <div className="text-4xl mb-2">{m.img}</div>
-                    <p className="font-bold text-[9px] uppercase text-slate-400 h-8 flex items-center justify-center leading-tight">{m.name}</p>
+                    <p className="font-bold text-[9px] uppercase text-slate-400 h-8 flex items-center justify-center">{m.name}</p>
                     <p className="text-amber-600 font-black italic text-lg">Rp {Number(m.price).toLocaleString()}</p>
                   </div>
                 ))}
@@ -144,18 +154,36 @@ export default function App() {
                   </div>
                 ))}
               </div>
+
               <div className="space-y-3">
                 <div className={`p-4 rounded-3xl border-2 ${usedNumbers.includes(String(orderNo)) ? 'border-red-500 bg-red-50' : 'bg-slate-900 border-slate-900'}`}>
                   <input type="number" value={orderNo} onChange={(e) => setOrderNo(e.target.value)} className="w-full bg-transparent text-center text-4xl font-black outline-none text-white" placeholder="00" />
                 </div>
+
+                <div className="bg-slate-100 p-3 rounded-2xl flex items-center gap-2 border-2 border-slate-200">
+                  <span className="text-[10px] font-black uppercase text-slate-400 pl-2">Disc Rp</span>
+                  <input type="number" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} className="flex-1 bg-transparent text-right font-black text-lg outline-none text-red-500" placeholder="0" />
+                </div>
+
+                <div className="px-2 py-1 space-y-1">
+                  <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase">
+                    <span>Subtotal</span>
+                    <span>Rp {cart.reduce((s,i)=>s+(i.price*i.qty),0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-black text-slate-900 uppercase">
+                    <span>Total</span>
+                    <span className="text-amber-600 font-black italic text-lg">Rp {(cart.reduce((s,i)=>s+(i.price*i.qty),0) - discount).toLocaleString()}</span>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   {['Tunai', 'QRIS'].map(m => (
                     <button key={m} onClick={() => setPayMethod(m)} className={`py-3 rounded-xl border font-bold text-[10px] uppercase ${payMethod === m ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-400 border-slate-100'}`}>{m}</button>
                   ))}
                 </div>
                 <button onClick={handleCheckout} disabled={cart.length === 0 || !orderNo || usedNumbers.includes(String(orderNo)) || isSync} 
-                        className="w-full py-5 bg-amber-500 text-white rounded-2xl font-black uppercase shadow-lg active:scale-95 disabled:bg-slate-100 disabled:text-slate-300">
-                  {isSync ? 'MENYIMPAN...' : 'KONFIRMASI'}
+                        className="w-full py-5 bg-amber-500 text-white rounded-2xl font-black uppercase shadow-lg active:scale-95 disabled:bg-slate-100">
+                  {isSync ? '...' : 'KONFIRMASI'}
                 </button>
               </div>
             </aside>
@@ -163,32 +191,30 @@ export default function App() {
         )}
       </div>
 
-      {/* MODAL KARBO TANPA STK */}
       {addonModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xs rounded-[2.5rem] p-6 shadow-2xl overflow-hidden">
+          <div className="bg-white w-full max-w-xs rounded-[2.5rem] p-6 shadow-2xl">
             <h2 className="text-lg font-black uppercase italic mb-4 text-center">{addonModal.name}</h2>
             <div className="grid grid-cols-1 gap-2">
               {['Nasi', 'Lontong', 'Singkong'].map(type => (
                 <button key={type} onClick={() => handleAddToCart(addonModal, type)} className="w-full flex items-center justify-between p-4 rounded-2xl border-2 bg-slate-50 border-transparent active:border-amber-200 transition-all">
                   <span className="font-bold uppercase text-xs">{type === 'Lontong' ? 'Ori-Lontong' : type}</span>
-                  <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-white border text-slate-900">
-                    {addonModal.id === "M3" || addonModal.id === "M4" ? 'Tetap' : (type === 'Nasi' ? '+1k' : type === 'Lontong' ? 'Ori' : '-1k')}
+                  <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-white border">
+                    {addonModal.id === "M3" || addonModal.id === "M4" ? 'Tetap' : (type === 'Nasi' ? '+1k' : type === 'Singkong' ? '-1k' : 'Ori')}
                   </span>
                 </button>
               ))}
-              <button onClick={() => setAddonModal(null)} className="w-full py-2 text-slate-300 font-bold text-[9px] uppercase mt-2">Batal</button>
+              <button onClick={() => setAddonModal(null)} className="w-full py-2 text-slate-300 font-bold text-[9px] uppercase mt-2 text-center">Batal</button>
             </div>
           </div>
         </div>
       )}
 
       {showReceipt && (
-        <div className="fixed inset-0 z-[60] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xs rounded-[3rem] p-8 text-center border-t-8 border-green-500">
+        <div className="fixed inset-0 z-[60] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 text-center">
+          <div className="bg-white w-full max-w-xs rounded-[3rem] p-8 border-t-8 border-green-500">
             <CheckCircle2 size={48} className="mx-auto text-green-500 mb-4" />
             <p className="text-6xl font-black text-slate-900 mb-6 italic">#{showReceipt.no_pesanan}</p>
-            <button onClick={() => cetakStruk(showReceipt, cart)} className="w-full py-4 bg-amber-500 text-white rounded-2xl font-black uppercase mb-2 flex items-center justify-center gap-2 text-xs"><Printer size={16}/> Cetak Ulang</button>
             <button onClick={() => setShowReceipt(null)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs">Tutup</button>
           </div>
         </div>
