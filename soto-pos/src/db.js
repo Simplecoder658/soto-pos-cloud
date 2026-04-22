@@ -1,32 +1,26 @@
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwB6x1BcUF58cqhK5Xguz-lCb6bAXq9oCwcgf1JzPgvYVGy1Yfgbam-GcXu2SIjGekezQ/exec";
+// db.js - FULL FIXED
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwMJshHjgSPSPhR1lKnaVwxTmVgQ3CXby-29RvU6y6ZLGFof8tf-7HAR7QMj8EBDD1y/exec";
 const SECRET_TOKEN = "BQsi2277";
 
-export const fetchCloudData = async () => {
-  try {
-    const response = await fetch(`${WEB_APP_URL}?action=getData&t=${Date.now()}`);
-    return await response.json();
-  } catch (error) {
-    console.error("Gagal ambil data:", error);
-    return null;
-  }
-};
+export const saveOrder = async (orderData) => {
+  const payload = {
+    token: SECRET_TOKEN,
+    action: "addOrder",
+    no_nota: orderData.noNota,
+    kasir: orderData.kasir,
+    meja: orderData.meja,
+    method: orderData.method,
+    discount: orderData.discount, // Nominal Diskon (Rp)
+    items: orderData.cart // Array berisi {name, category, qty, price}
+  };
 
-export const saveOrderToSheet = async (orderData) => {
   try {
-    const payload = { token: SECRET_TOKEN, action: "addOrder", ...orderData };
-    const response = await fetch(WEB_APP_URL, { method: "POST", body: JSON.stringify(payload) });
+    const response = await fetch(WEB_APP_URL, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
     return await response.json();
   } catch (error) {
     return { status: "ERROR", message: error.message };
-  }
-};
-
-export const updateShiftCloud = async (status) => {
-  try {
-    const payload = { token: SECRET_TOKEN, action: "updateShift", status };
-    const response = await fetch(WEB_APP_URL, { method: "POST", body: JSON.stringify(payload) });
-    return await response.json();
-  } catch (error) {
-    return { status: "ERROR" };
   }
 };
