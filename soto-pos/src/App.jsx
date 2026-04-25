@@ -1,175 +1,144 @@
-import React, { useState, useEffect } from 'react';
-import { saveOrder } from './db'; // Pastikan db.js sudah pakai URL baru
+// App.jsx - FULL FIXED
+import React, { useState } from 'react';
+import { saveOrder } from './db';
 
-const App = () => {
-  // 1. State Management
+// Daftar menu diambil dari Database_Soto.xlsx
+const menuItems = [
+  { id: "M1", name: "Soto Ayam Kampung Resep Ibu", price: 14000, category: "Makanan", options: ["Nasi", "Singkong", "Lontong"] },
+  { id: "M2", name: "Soto Daging Andalan Bapak", price: 16000, category: "Makanan", options: ["Nasi", "Singkong", "Lontong"] },
+  { id: "M3", name: "Soto Ayam Porsi Adik", price: 11000, category: "Makanan", options: ["Nasi", "Lontong"] },
+  { id: "D1", name: "Es Bir Pletok", price: 8000, category: "Minuman", options: [] },
+  { id: "D3", name: "Es Kopi Gula Aren", price: 10000, category: "Minuman", options: [] },
+  { id: "J3", name: "Kacang Mix (Bk Kecil)", price: 3000, category: "Jajanan", options: [] },
+  // Tambahkan menu lainnya sesuai ID di Spreadsheet Bos
+];
+
+export default function App() {
   const [cart, setCart] = useState([]);
   const [noNota, setNoNota] = useState("");
-  const [meja, setMeja] = useState("");
-  const [metodeBayar, setMetodeBayar] = useState("Tunai");
-  const [diskon, setDiskon] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [diskonManual, setDiskonManual] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState("Tunai");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 2. Daftar Menu (Sesuai Tab DATA MENU Bos)
-  // Pastikan property 'category' sama persis dengan yang ada di Excel
-  const daftarMenu = [
-    { id: 1, name: "Soto Ayam - Singkong", category: "Soto Ayam", price: 13000 },
-    { id: 2, name: "Soto Ayam - Nasi", category: "Soto Ayam", price: 15000 },
-    { id: 4, name: "Soto Daging - Singkong", category: "Soto Daging", price: 15000 },
-    { id: 6, name: "Soto Daging - Nasi", category: "Soto Daging", price: 17000 },
-    { id: 18, name: "Es Teh", category: "Minuman", price: 4000 },
-    { id: 19, name: "Es Kopi Susu", category: "Minuman", price: 10000 },
-    // Tambahkan menu lainnya di sini...
-  ];
-
-  // 3. Perhitungan Total
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-  const totalAkhir = subtotal - diskon;
-
-  // 4. Fungsi Tambah ke Keranjang
-  const addToCart = (menu) => {
-    const existing = cart.find(item => item.id === menu.id);
-    if (existing) {
-      setCart(cart.map(item => 
-        item.id === menu.id ? { ...item, qty: item.qty + 1 } : item
-      ));
+  // Fungsi tambah ke keranjang (Opsi default = Nasi, Harga tetap)
+  const addToCart = (menu, selectedOption = "Nasi") => {
+    const hasOptions = menu.options && menu.options.length > 0;
+    const finalOption = hasOptions ? selectedOption : null;
+    
+    const exist = cart.find(x => x.id === menu.id && x.option === finalOption);
+    if (exist) {
+      setCart(cart.map(x => (x.id === menu.id && x.option === finalOption) ? { ...exist, qty: exist.qty + 1 } : x));
     } else {
-      setCart([...cart, { ...menu, qty: 1 }]);
+      setCart([...cart, { ...menu, qty: 1, option: finalOption }]);
     }
   };
 
-  // 5. Fungsi Simpan Transaksi (KONFIRMASI)
-  const handleCheckout = async () => {
-    if (!noNota) return alert("Isi Nomor Nota dulu, Bos!");
-    if (cart.length === 0) return alert("Keranjang masih kosong!");
+  const subtotal = cart.reduce((a, c) => a + (c.price * c.qty), 0);
+  const totalBayar = subtotal - diskonManual;
 
-    setLoading(true);
+  const handleCheckout = async () => {
+    if (!noNota) return alert("Masukkan Nomor Nota!");
+    if (cart.length === 0) return alert("Keranjang Kosong!");
+    
+    setIsSubmitting(true);
     const orderData = {
       noNota: noNota,
-      kasir: "Kasir 1", // Bisa dibuat dinamis jika perlu
-      meja: meja || "-",
-      method: metodeBayar,
-      discount: Number(diskon),
-      cart: cart // Mengirim array {name, category, qty, price}
+      kasir: "admin", // Sesuai user di Users.csv
+      total: totalBayar,
+      method: paymentMethod,
+      cart: cart
     };
 
-    try {
-      const result = await saveOrder(orderData);
-      if (result.status === "OK") {
-        alert(`Transaksi Nota #${noNota} Berhasil Disimpan ke LOG!`);
-        // Reset Form
-        setCart([]);
-        setNoNota("");
-        setMeja("");
-        setDiskon(0);
-      } else {
-        alert("Gagal simpan: " + result.message);
-      }
-    } catch (error) {
-      alert("Error Koneksi: " + error.message);
-    } finally {
-      setLoading(false);
+    const result = await saveOrder(orderData);
+    if (result.status === "OK") {
+      alert("Transaksi Berhasil! Stok Terpotong & Data Masuk ke Sheets.");
+      setCart([]);
+      setNoNota("");
+      setDiskonManual(0);
+    } else {
+      alert("Gagal Simpan: " + result.msg);
     }
+    setIsSubmitting(false);
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', fontFamily: 'sans-serif' }}>
+    <div style={{ display: 'flex', padding: '20px', fontFamily: 'Arial, sans-serif', gap: '20px', backgroundColor: '#f4f4f4', minHeight: '100vh' }}>
       
-      {/* BAGIAN KIRI: DAFTAR MENU */}
-      <div style={{ flex: 1, padding: '20px', overflowY: 'auto', backgroundColor: '#f4f4f4' }}>
-        <h2 style={{ marginBottom: '20px' }}>Menu Kedai Rame 23</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '15px' }}>
-          {daftarMenu.map(menu => (
-            <div 
-              key={menu.id} 
-              onClick={() => addToCart(menu)}
-              style={{ 
-                padding: '15px', backgroundColor: 'white', borderRadius: '12px', 
-                cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', textAlign: 'center' 
-              }}
-            >
-              <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{menu.name}</div>
-              <div style={{ color: '#e67e22', marginTop: '5px' }}>Rp {menu.price.toLocaleString()}</div>
+      {/* AREA MENU (KIRI) */}
+      <div style={{ flex: 2 }}>
+        <h2 style={{ color: '#333' }}>KEDAI RAME 23 - POS</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
+          {menuItems.map(item => (
+            <div key={item.id} style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
+              <div style={{ fontWeight: 'bold' }}>{item.name}</div>
+              <div style={{ color: '#e67e22', marginBottom: '10px' }}>Rp {item.price.toLocaleString()}</div>
+              
+              {item.options.length > 0 ? (
+                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                  {item.options.map(opt => (
+                    <button key={opt} onClick={() => addToCart(item, opt)} style={{ padding: '5px 8px', fontSize: '11px', cursor: 'pointer', borderRadius: '5px', border: '1px solid #ddd' }}>
+                      + {opt}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <button onClick={() => addToCart(item)} style={{ width: '100%', padding: '8px', cursor: 'pointer', backgroundColor: '#ecf0f1', border: 'none', borderRadius: '5px' }}>
+                  Tambah
+                </button>
+              )}
             </div>
           ))}
         </div>
       </div>
 
-      {/* BAGIAN KANAN: INPUT TRANSAKSI (Aside) */}
-      <div style={{ width: '350px', padding: '20px', borderLeft: '2px solid #ddd', display: 'flex', flexDirection: 'column' }}>
-        <h3 style={{ borderBottom: '2px solid #333', paddingBottom: '10px' }}>INPUT TRANSAKSI</h3>
+      {/* AREA KASIR (KANAN) */}
+      <div style={{ flex: 1, backgroundColor: '#fff', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 10px rgba(0,0,0,0.1)', height: 'fit-content' }}>
+        <h3 style={{ borderBottom: '2px solid #333', paddingBottom: '10px' }}>RINGKASAN ORDER</h3>
         
-        {/* Input Kuning (Sesuai Petunjuk) */}
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ fontSize: '12px', fontWeight: 'bold' }}>NO. NOTA (KUNING)</label>
-          <input 
-            type="text" placeholder="Contoh: 001"
-            value={noNota} onChange={(e) => setNoNota(e.target.value)}
-            style={{ width: '100%', padding: '10px', backgroundColor: '#fff9c4', border: '1px solid #fbc02d', borderRadius: '5px', fontSize: '18px', fontWeight: 'bold' }}
-          />
-        </div>
+        <label style={{ fontSize: '12px', fontWeight: 'bold' }}>NO. NOTA</label>
+        <input type="text" value={noNota} onChange={(e) => setNoNota(e.target.value)} placeholder="Contoh: 001" 
+          style={{ width: '100%', padding: '12px', marginBottom: '20px', backgroundColor: '#fff9c4', border: '1px solid #fbc02d', borderRadius: '5px', fontSize: '16px', boxSizing: 'border-box' }} 
+        />
 
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ fontSize: '12px', fontWeight: 'bold' }}>MEJA / ORDER</label>
-          <input 
-            type="text" value={meja} onChange={(e) => setMeja(e.target.value)}
-            style={{ width: '100%', padding: '8px', borderRadius: '5px', border: '1px solid #ccc' }}
-          />
-        </div>
-
-        {/* List Item di Keranjang */}
-        <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #eee', padding: '10px', borderRadius: '5px', marginBottom: '15px' }}>
-          {cart.map((item, index) => (
-            <div key={index} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '8px' }}>
-              <span>{item.name} x{item.qty}</span>
-              <span>{(item.price * item.qty).toLocaleString()}</span>
+        <div style={{ minHeight: '150px', borderBottom: '1px solid #eee', marginBottom: '15px' }}>
+          {cart.map((i, idx) => (
+            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
+              <span>{i.name} {i.option && `(${i.option})`} x{i.qty}</span>
+              <span>{(i.price * i.qty).toLocaleString()}</span>
             </div>
           ))}
         </div>
 
-        {/* Perhitungan Total & Diskon */}
-        <div style={{ borderTop: '2px solid #eee', paddingTop: '15px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+        <div style={{ marginBottom: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span>Subtotal:</span>
             <span>Rp {subtotal.toLocaleString()}</span>
           </div>
-          
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <span>Diskon (Rp):</span>
-            <input 
-              type="number" value={diskon} onChange={(e) => setDiskon(e.target.value)}
-              style={{ width: '100px', textAlign: 'right', padding: '5px', backgroundColor: '#fff9c4', border: '1px solid #fbc02d' }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '20px', color: '#27ae60', backgroundColor: '#e8f5e9', padding: '10px', borderRadius: '8px' }}>
-            <span>TOTAL:</span>
-            <span>Rp {totalAkhir.toLocaleString()}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+            <span>Diskon Manual (Rp):</span>
+            <input type="number" value={diskonManual} onChange={(e) => setDiskonManual(Number(e.target.value))} 
+              style={{ width: '100px', textAlign: 'right', padding: '5px' }} />
           </div>
         </div>
 
-        <div style={{ marginTop: '15px' }}>
-          <label style={{ fontSize: '12px', fontWeight: 'bold' }}>METODE BAYAR</label>
-          <select value={metodeBayar} onChange={(e) => setMetodeBayar(e.target.value)} style={{ width: '100%', padding: '10px', marginTop: '5px' }}>
-            <option value="Tunai">Tunai</option>
-            <option value="QRIS">QRIS</option>
-            <option value="Transfer">Transfer</option>
-          </select>
+        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#27ae60', textAlign: 'right', padding: '15px 0' }}>
+          TOTAL: Rp {totalBayar.toLocaleString()}
         </div>
+
+        <label style={{ fontSize: '12px' }}>METODE BAYAR</label>
+        <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '20px' }}>
+          <option value="Tunai">Tunai</option>
+          <option value="QRIS">QRIS</option>
+        </select>
 
         <button 
-          onClick={handleCheckout}
-          disabled={loading}
-          style={{ 
-            width: '100%', padding: '15px', marginTop: '20px', backgroundColor: loading ? '#ccc' : '#2c3e50', 
-            color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' 
-          }}
+          onClick={handleCheckout} 
+          disabled={isSubmitting}
+          style={{ width: '100%', padding: '18px', backgroundColor: isSubmitting ? '#ccc' : '#2c3e50', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}
         >
-          {loading ? "MENYIMPAN..." : "KONFIRMASI (SIMPAN KE LOG)"}
+          {isSubmitting ? "PROSES..." : "KONFIRMASI SELESAI"}
         </button>
       </div>
     </div>
   );
-};
-
-export default App;
+}
