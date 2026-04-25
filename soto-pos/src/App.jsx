@@ -1,143 +1,117 @@
 // App.jsx - FULL FIXED
-import React, { useState } from 'react';
-import { saveOrder } from './db';
-
-// Daftar menu diambil dari Database_Soto.xlsx
-const menuItems = [
-  { id: "M1", name: "Soto Ayam Kampung Resep Ibu", price: 14000, category: "Makanan", options: ["Nasi", "Singkong", "Lontong"] },
-  { id: "M2", name: "Soto Daging Andalan Bapak", price: 16000, category: "Makanan", options: ["Nasi", "Singkong", "Lontong"] },
-  { id: "M3", name: "Soto Ayam Porsi Adik", price: 11000, category: "Makanan", options: ["Nasi", "Lontong"] },
-  { id: "D1", name: "Es Bir Pletok", price: 8000, category: "Minuman", options: [] },
-  { id: "D3", name: "Es Kopi Gula Aren", price: 10000, category: "Minuman", options: [] },
-  { id: "J3", name: "Kacang Mix (Bk Kecil)", price: 3000, category: "Jajanan", options: [] },
-  // Tambahkan menu lainnya sesuai ID di Spreadsheet Bos
-];
+import React, { useState, useEffect } from 'react';
+import { getInitialData, saveOrder, updateShiftStatus } from './db';
 
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [db, setDb] = useState({ menu: [], users: [], orders: [], shiftStatus: "CLOSED" });
+  const [login, setLogin] = useState({ username: "", pin: "" });
   const [cart, setCart] = useState([]);
   const [noNota, setNoNota] = useState("");
-  const [diskonManual, setDiskonManual] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState("Tunai");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [diskon, setDiskon] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-  // Fungsi tambah ke keranjang (Opsi default = Nasi, Harga tetap)
-  const addToCart = (menu, selectedOption = "Nasi") => {
-    const hasOptions = menu.options && menu.options.length > 0;
-    const finalOption = hasOptions ? selectedOption : null;
-    
-    const exist = cart.find(x => x.id === menu.id && x.option === finalOption);
+  useEffect(() => { loadData(); }, []);
+
+  const loadData = async () => {
+    const data = await getInitialData();
+    if (data && data.status === "SUCCESS") setDb(data);
+  };
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    const found = db.users.find(u => u.username === login.username && u.pin === login.pin);
+    if (found) setUser(found); else alert("Login Gagal! Username atau PIN Salah.");
+  };
+
+  const addToCart = (item, opt = "Nasi") => {
+    const option = item.options.length > 0 ? opt : null;
+    const exist = cart.find(x => x.id === item.id && x.option === option);
     if (exist) {
-      setCart(cart.map(x => (x.id === menu.id && x.option === finalOption) ? { ...exist, qty: exist.qty + 1 } : x));
+      setCart(cart.map(x => (x.id === item.id && x.option === option) ? {...exist, qty: exist.qty + 1} : x));
     } else {
-      setCart([...cart, { ...menu, qty: 1, option: finalOption }]);
+      setCart([...cart, { ...item, qty: 1, option }]);
     }
   };
 
-  const subtotal = cart.reduce((a, c) => a + (c.price * c.qty), 0);
-  const totalBayar = subtotal - diskonManual;
-
-  const handleCheckout = async () => {
-    if (!noNota) return alert("Masukkan Nomor Nota!");
-    if (cart.length === 0) return alert("Keranjang Kosong!");
-    
-    setIsSubmitting(true);
-    const orderData = {
-      noNota: noNota,
-      kasir: "admin", // Sesuai user di Users.csv
-      total: totalBayar,
-      method: paymentMethod,
-      cart: cart
-    };
-
-    const result = await saveOrder(orderData);
-    if (result.status === "OK") {
-      alert("Transaksi Berhasil! Stok Terpotong & Data Masuk ke Sheets.");
-      setCart([]);
-      setNoNota("");
-      setDiskonManual(0);
-    } else {
-      alert("Gagal Simpan: " + result.msg);
+  const onCheckout = async () => {
+    if (!noNota) return alert("Nomor Nota Kosong!");
+    setLoading(true);
+    const subtotal = cart.reduce((a, c) => a + (c.price * c.qty), 0);
+    const res = await saveOrder({ noNota, total: subtotal - diskon, method: "Tunai", kasir: user.username, cart });
+    if (res.status === "OK") {
+      alert("Transaksi Berhasil!");
+      setCart([]); setNoNota(""); setDiskon(0); loadData();
     }
-    setIsSubmitting(false);
+    setLoading(false);
   };
+
+  // Filter: Admin tidak masuk laporan omzet (Testing Mode)
+  const realOrders = db.orders.filter(o => o.kasir !== "admin");
+  const totalOmzet = realOrders.reduce((a, c) => a + Number(c.total), 0);
+
+  if (!user) return (
+    <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#2c3e50' }}>
+      <form onSubmit={handleLogin} style={{ background: '#fff', padding: '30px', borderRadius: '15px', width: '300px' }}>
+        <h2 style={{ textAlign: 'center' }}>SOTO POS LOGIN</h2>
+        <input type="text" placeholder="Username" onChange={e => setLogin({...login, username: e.target.value})} style={{ width: '100%', padding: '10px', marginBottom: '10px' }} />
+        <input type="password" placeholder="PIN" onChange={e => setLogin({...login, pin: e.target.value})} style={{ width: '100%', padding: '10px', marginBottom: '20px' }} />
+        <button type="submit" style={{ width: '100%', padding: '10px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>MASUK</button>
+      </form>
+    </div>
+  );
 
   return (
-    <div style={{ display: 'flex', padding: '20px', fontFamily: 'Arial, sans-serif', gap: '20px', backgroundColor: '#f4f4f4', minHeight: '100vh' }}>
-      
-      {/* AREA MENU (KIRI) */}
+    <div style={{ padding: '20px', fontFamily: 'sans-serif', display: 'flex', gap: '20px', background: '#f4f7f6', minHeight: '100vh' }}>
+      {/* KIRI: MENU */}
       <div style={{ flex: 2 }}>
-        <h2 style={{ color: '#333' }}>KEDAI RAME 23 - POS</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
-          {menuItems.map(item => (
-            <div key={item.id} style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>
-              <div style={{ fontWeight: 'bold' }}>{item.name}</div>
-              <div style={{ color: '#e67e22', marginBottom: '10px' }}>Rp {item.price.toLocaleString()}</div>
-              
-              {item.options.length > 0 ? (
-                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                  {item.options.map(opt => (
-                    <button key={opt} onClick={() => addToCart(item, opt)} style={{ padding: '5px 8px', fontSize: '11px', cursor: 'pointer', borderRadius: '5px', border: '1px solid #ddd' }}>
-                      + {opt}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <button onClick={() => addToCart(item)} style={{ width: '100%', padding: '8px', cursor: 'pointer', backgroundColor: '#ecf0f1', border: 'none', borderRadius: '5px' }}>
-                  Tambah
-                </button>
-              )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <h3>MENU KEDAI RAME (Shift: {db.shiftStatus})</h3>
+          <button onClick={() => setUser(null)} style={{ background: '#e74c3c', color: '#fff', border: 'none', padding: '5px 15px', borderRadius: '5px' }}>Logout</button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px' }}>
+          {db.menu.map(m => (
+            <div key={m.id} style={{ background: '#fff', padding: '15px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <strong>{m.name}</strong> <br/> Rp {m.price.toLocaleString()} <br/>
+              {m.options.length > 0 ? m.options.map(o => (
+                <button key={o} onClick={() => addToCart(m, o)} style={{ fontSize: '10px', marginRight: '5px', marginTop: '10px' }}>+ {o}</button>
+              )) : <button onClick={() => addToCart(m)} style={{ width: '100%', marginTop: '10px' }}>Tambah</button>}
             </div>
           ))}
         </div>
       </div>
 
-      {/* AREA KASIR (KANAN) */}
-      <div style={{ flex: 1, backgroundColor: '#fff', padding: '25px', borderRadius: '15px', boxShadow: '0 4px 10px rgba(0,0,0,0.1)', height: 'fit-content' }}>
-        <h3 style={{ borderBottom: '2px solid #333', paddingBottom: '10px' }}>RINGKASAN ORDER</h3>
-        
-        <label style={{ fontSize: '12px', fontWeight: 'bold' }}>NO. NOTA</label>
-        <input type="text" value={noNota} onChange={(e) => setNoNota(e.target.value)} placeholder="Contoh: 001" 
-          style={{ width: '100%', padding: '12px', marginBottom: '20px', backgroundColor: '#fff9c4', border: '1px solid #fbc02d', borderRadius: '5px', fontSize: '16px', boxSizing: 'border-box' }} 
-        />
-
-        <div style={{ minHeight: '150px', borderBottom: '1px solid #eee', marginBottom: '15px' }}>
-          {cart.map((i, idx) => (
-            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
-              <span>{i.name} {i.option && `(${i.option})`} x{i.qty}</span>
-              <span>{(i.price * i.qty).toLocaleString()}</span>
+      {/* KANAN: KASIR & ADMIN PANEL */}
+      <div style={{ flex: 1.2 }}>
+        {user.role === 'admin' && (
+          <div style={{ background: '#fff', padding: '15px', borderRadius: '10px', marginBottom: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+            <h4 style={{ color: '#2980b9', margin: '0 0 10px 0' }}>ADMIN DASHBOARD</h4>
+            <button onClick={async () => { await updateShiftStatus("OPEN"); loadData(); }}>Buka Shift</button>
+            <button onClick={async () => { await updateShiftStatus("CLOSED"); loadData(); }} style={{ marginLeft: '10px' }}>Tutup Shift</button>
+            <hr/>
+            <p>Omzet Hari Ini (Kasir): <b>Rp {totalOmzet.toLocaleString()}</b></p>
+            <div style={{ maxHeight: '150px', overflowY: 'auto', fontSize: '11px', background: '#f9f9f9', padding: '5px' }}>
+              {realOrders.map((o, i) => <div key={i} style={{ borderBottom: '1px solid #ddd' }}>{o.noNota} | {o.kasir} | Rp {o.total.toLocaleString()}</div>)}
             </div>
-          ))}
-        </div>
-
-        <div style={{ marginBottom: '10px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Subtotal:</span>
-            <span>Rp {subtotal.toLocaleString()}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-            <span>Diskon Manual (Rp):</span>
-            <input type="number" value={diskonManual} onChange={(e) => setDiskonManual(Number(e.target.value))} 
-              style={{ width: '100px', textAlign: 'right', padding: '5px' }} />
+        )}
+
+        <div style={{ background: '#fff', padding: '15px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <h4>KASIR: {user.username.toUpperCase()}</h4>
+          <input type="text" placeholder="No Nota" value={noNota} onChange={e => setNoNota(e.target.value)} style={{ width: '100%', padding: '10px', background: '#fff9c4', border: '1px solid #f1c40f', boxSizing: 'border-box' }} />
+          <div style={{ minHeight: '150px', marginTop: '15px', borderBottom: '1px solid #eee' }}>
+            {cart.map((c, i) => <div key={i} style={{ fontSize: '14px' }}>{c.name} {c.option && `(${c.option})`} x{c.qty}</div>)}
           </div>
+          <div style={{ marginTop: '15px' }}>
+            <span>Diskon Manual: </span>
+            <input type="number" value={diskon} onChange={e => setDiskon(Number(e.target.value))} style={{ width: '80px', textAlign: 'right' }} />
+          </div>
+          <h3 style={{ color: '#27ae60' }}>TOTAL: Rp {(cart.reduce((a, c) => a + (c.price * c.qty), 0) - diskon).toLocaleString()}</h3>
+          <button onClick={onCheckout} disabled={loading} style={{ width: '100%', padding: '15px', background: '#2c3e50', color: '#fff', fontWeight: 'bold', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
+            {loading ? "MENYIMPAN..." : "KONFIRMASI SELESAI"}
+          </button>
+          {user.username === 'admin' && <p style={{ color: 'red', fontSize: '10px', marginTop: '10px' }}>* Mode Admin Aktif (Administrator/Testing)</p>}
         </div>
-
-        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#27ae60', textAlign: 'right', padding: '15px 0' }}>
-          TOTAL: Rp {totalBayar.toLocaleString()}
-        </div>
-
-        <label style={{ fontSize: '12px' }}>METODE BAYAR</label>
-        <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '20px' }}>
-          <option value="Tunai">Tunai</option>
-          <option value="QRIS">QRIS</option>
-        </select>
-
-        <button 
-          onClick={handleCheckout} 
-          disabled={isSubmitting}
-          style={{ width: '100%', padding: '18px', backgroundColor: isSubmitting ? '#ccc' : '#2c3e50', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}
-        >
-          {isSubmitting ? "PROSES..." : "KONFIRMASI SELESAI"}
-        </button>
       </div>
     </div>
   );
