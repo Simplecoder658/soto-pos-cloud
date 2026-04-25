@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getInitialData, saveOrder, updateShiftStatus } from './db';
 
 export default function App() {
@@ -10,6 +10,10 @@ export default function App() {
   const [diskon, setDiskon] = useState(0);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("Makanan");
+  const [showCartMobile, setShowCartMobile] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [lastOrder, setLastOrder] = useState(null);
+  const printRef = useRef();
 
   useEffect(() => { loadData(); }, []);
 
@@ -34,148 +38,169 @@ export default function App() {
     }
   };
 
-  const removeItem = (index) => {
-    const newCart = [...cart];
-    newCart.splice(index, 1);
-    setCart(newCart);
-  };
-
   const onCheckout = async () => {
-    if (!noNota) return alert("Masukkan Nomor Nota!");
+    if (!noNota) return alert("Isi No Nota!");
     setLoading(true);
     const subtotal = cart.reduce((a, c) => a + (c.price * c.qty), 0);
-    const res = await saveOrder({ noNota, total: subtotal - diskon, method: "Tunai", kasir: user.username, cart });
+    const totalFinal = subtotal - diskon;
+    const res = await saveOrder({ noNota, total: totalFinal, method: "Tunai", kasir: user.username, cart });
     if (res.status === "OK") {
-      alert("Transaksi Berhasil!");
-      setCart([]); setNoNota(""); setDiskon(0); loadData();
+      setLastOrder({ noNota, kasir: user.username, items: [...cart], subtotal, diskon, total: totalFinal, time: new Date().toLocaleString() });
+      setShowReceipt(true);
     }
     setLoading(false);
   };
 
-  const categories = ["Makanan", "Minuman", "Jajanan", "Extra"];
-  const realOrders = db.orders.filter(o => o.kasir !== "admin");
-  const totalOmzet = realOrders.reduce((a, c) => a + Number(c.total), 0);
+  const handleClosePayment = () => {
+    setShowReceipt(false); setCart([]); setNoNota(""); setDiskon(0); setShowCartMobile(false); loadData();
+  };
 
-  // LOGIN SCREEN
   if (!user) return (
-    <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'linear-gradient(135deg, #2c3e50, #000)', fontFamily: 'Inter, sans-serif' }}>
-      <div style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', padding: '40px', borderRadius: '24px', width: '350px', border: '1px solid rgba(255,255,255,0.2)', textAlign: 'center' }}>
-        <h1 style={{ color: '#fff', fontSize: '28px', marginBottom: '10px', fontWeight: '800' }}>KEDAI RAME 23</h1>
-        <p style={{ color: '#ccc', marginBottom: '30px' }}>Silakan masukkan PIN Kasir</p>
+    <div className="login-screen">
+      <div className="login-box">
+        <h1>KEDAI RAME 23</h1>
         <form onSubmit={handleLogin}>
-          <input type="text" placeholder="Username" onChange={e => setLogin({...login, username: e.target.value})} style={{ width: '100%', padding: '15px', marginBottom: '15px', borderRadius: '12px', border: 'none', background: '#fff' }} />
-          <input type="password" placeholder="PIN" onChange={e => setLogin({...login, pin: e.target.value})} style={{ width: '100%', padding: '15px', marginBottom: '25px', borderRadius: '12px', border: 'none', background: '#fff' }} />
-          <button type="submit" style={{ width: '100%', padding: '15px', background: '#f1c40f', color: '#000', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>MASUK</button>
+          <input type="text" placeholder="Username" onChange={e => setLogin({...login, username: e.target.value})} />
+          <input type="password" placeholder="PIN" onChange={e => setLogin({...login, pin: e.target.value})} />
+          <button type="submit">MASUK KASIR</button>
         </form>
       </div>
     </div>
   );
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: '#f0f2f5', fontFamily: 'Inter, sans-serif', overflow: 'hidden' }}>
-      
-      {/* SIDEBAR NAVIGATION */}
-      <div style={{ width: '100px', background: '#fff', borderRight: '1px solid #e0e0e0', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 0' }}>
-        <div style={{ width: '50px', height: '50px', background: '#f1c40f', borderRadius: '15px', marginBottom: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: 'bold' }}>KR</div>
-        {categories.map(cat => (
-          <button key={cat} onClick={() => setActiveTab(cat)} style={{ background: 'none', border: 'none', marginBottom: '25px', color: activeTab === cat ? '#f1c40f' : '#95a5a6', cursor: 'pointer', transition: '0.3s' }}>
-            <div style={{ fontSize: '12px', fontWeight: activeTab === cat ? 'bold' : 'normal' }}>{cat}</div>
-          </button>
+    <div className="app-container">
+      {/* HEADER MOBILE */}
+      <div className="mobile-header">
+        <span><b>KR23</b> - {user.username}</span>
+        <button onClick={() => setShowCartMobile(!showCartMobile)}>🛒 {cart.length}</button>
+      </div>
+
+      {/* SIDEBAR NAVIGATION (LAPTOP ONLY) */}
+      <div className="sidebar">
+        <div className="logo">KR</div>
+        {["Makanan", "Minuman", "Jajanan"].map(cat => (
+          <button key={cat} className={activeTab === cat ? 'active' : ''} onClick={() => setActiveTab(cat)}>{cat}</button>
         ))}
-        <button onClick={() => setUser(null)} style={{ marginTop: 'auto', background: '#fee2e2', border: 'none', padding: '10px', borderRadius: '10px', color: '#ef4444', cursor: 'pointer' }}>OFF</button>
+        <button className="logout-btn" onClick={() => setUser(null)}>EXIT</button>
       </div>
 
-      {/* MAIN CONTENT: MENU */}
-      <div style={{ flex: 2, padding: '30px', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '800' }}>Pilih Menu</h2>
-            <p style={{ margin: 0, color: '#7f8c8d' }}>User: {user.username} | Shift: <span style={{ color: db.shiftStatus === 'OPEN' ? '#27ae60' : '#e74c3c' }}>{db.shiftStatus}</span></p>
-          </div>
-          {user.role === 'admin' && (
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={() => updateShiftStatus("OPEN").then(loadData)} style={{ background: '#27ae60', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer' }}>Buka Shift</button>
-              <button onClick={() => updateShiftStatus("CLOSED").then(loadData)} style={{ background: '#e74c3c', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer' }}>Tutup Shift</button>
-            </div>
-          )}
-        </div>
+      {/* CATEGORY BAR (MOBILE ONLY) */}
+      <div className="mobile-categories">
+        {["Makanan", "Minuman", "Jajanan"].map(cat => (
+          <button key={cat} className={activeTab === cat ? 'active' : ''} onClick={() => setActiveTab(cat)}>{cat}</button>
+        ))}
+      </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px' }}>
+      {/* MENU GRID */}
+      <div className="menu-area">
+        <div className="admin-status">
+          <span>Shift: <b style={{color: db.shiftStatus === 'OPEN' ? '#2ecc71' : '#e74c3c'}}>{db.shiftStatus}</b></span>
+          {user.role === 'admin' && <button onClick={() => updateShiftStatus(db.shiftStatus === 'OPEN' ? "CLOSED" : "OPEN").then(loadData)}>Toggle Shift</button>}
+        </div>
+        <div className="grid">
           {db.menu.filter(m => m.category === activeTab).map(m => (
-            <div key={m.id} style={{ background: '#fff', borderRadius: '20px', padding: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', transition: '0.3s' }}>
-              <div style={{ fontSize: '30px', marginBottom: '10px' }}>{m.img || '🥣'}</div>
-              <div style={{ fontWeight: 'bold', fontSize: '16px', height: '40px', overflow: 'hidden' }}>{m.name}</div>
-              <div style={{ color: '#27ae60', fontWeight: '800', margin: '10px 0' }}>Rp {m.price.toLocaleString()}</div>
-              <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+            <div key={m.id} className="card">
+              <span className="emoji">{m.img}</span>
+              <div className="info">
+                <p className="name">{m.name}</p>
+                <p className="price">Rp {m.price.toLocaleString()}</p>
+              </div>
+              <div className="actions">
                 {m.options.length > 0 ? m.options.map(o => (
-                  <button key={o} onClick={() => addToCart(m, o)} style={{ flex: 1, padding: '8px', fontSize: '11px', background: '#f8f9fa', border: '1px solid #eee', borderRadius: '8px', cursor: 'pointer' }}>{o}</button>
-                )) : (
-                  <button onClick={() => addToCart(m)} style={{ width: '100%', padding: '8px', background: '#34495e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Tambah</button>
-                )}
+                  <button key={o} onClick={() => addToCart(m, o)}>{o}</button>
+                )) : <button onClick={() => addToCart(m)}>Tambah</button>}
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* RIGHT SIDE: CART / STRUK */}
-      <div style={{ width: '400px', background: '#fff', borderLeft: '1px solid #e0e0e0', display: 'flex', flexDirection: 'column', padding: '30px' }}>
-        <h3 style={{ marginTop: 0 }}>Keranjang Belanja</h3>
-        <input 
-          type="text" 
-          placeholder="No. Nota / Antrian" 
-          value={noNota} 
-          onChange={e => setNoNota(e.target.value)} 
-          style={{ width: '100%', padding: '15px', background: '#fff9c4', border: '2px solid #f1c40f', borderRadius: '12px', fontSize: '18px', fontWeight: 'bold', marginBottom: '20px', boxSizing: 'border-box' }} 
-        />
-
-        <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px' }}>
-          {cart.length === 0 ? (
-            <p style={{ textAlign: 'center', color: '#bdc3c7', marginTop: '50px' }}>Belum ada item dipilih</p>
-          ) : cart.map((item, idx) => (
-            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', alignItems: 'center' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{item.name}</div>
-                <div style={{ fontSize: '12px', color: '#7f8c8d' }}>{item.option && `Pilihan: ${item.option}`} x{item.qty}</div>
-              </div>
-              <div style={{ fontWeight: 'bold', marginRight: '10px' }}>{(item.price * item.qty).toLocaleString()}</div>
-              <button onClick={() => removeItem(idx)} style={{ color: '#e74c3c', border: 'none', background: 'none', cursor: 'pointer' }}>✕</button>
+      {/* CART AREA (LAPTOP & MOBILE DRAWER) */}
+      <div className={`cart-area ${showCartMobile ? 'mobile-open' : ''}`}>
+        <div className="cart-header">
+          <h3>Pesanan</h3>
+          <button className="close-cart" onClick={() => setShowCartMobile(false)}>✕ Close</button>
+        </div>
+        <input type="text" placeholder="No. Nota" value={noNota} onChange={e => setNoNota(e.target.value)} className="nota-input" />
+        
+        <div className="cart-items">
+          {cart.map((item, idx) => (
+            <div key={idx} className="item">
+              <span>{item.name} ({item.option}) x{item.qty}</span>
+              <b>{(item.price * item.qty).toLocaleString()}</b>
             </div>
           ))}
         </div>
 
-        <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '15px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span>Subtotal</span>
-            <span>Rp {cart.reduce((a, c) => a + (c.price * c.qty), 0).toLocaleString()}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <span>Diskon Manual</span>
-            <input type="number" value={diskon} onChange={e => setDiskon(Number(e.target.value))} style={{ width: '100px', textAlign: 'right', padding: '5px', border: '1px solid #ddd', borderRadius: '5px' }} />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '22px', fontWeight: '800', color: '#27ae60' }}>
-            <span>TOTAL</span>
-            <span>Rp {(cart.reduce((a, c) => a + (c.price * c.qty), 0) - diskon).toLocaleString()}</span>
+        <div className="summary">
+          <div className="row"><span>Total</span><b>Rp {(cart.reduce((a, c) => a + (c.price * c.qty), 0) - diskon).toLocaleString()}</b></div>
+          <button onClick={onCheckout} disabled={loading || cart.length === 0} className="pay-btn">{loading ? "..." : "BAYAR"}</button>
+        </div>
+      </div>
+
+      {/* MODAL PRINT */}
+      {showReceipt && (
+        <div className="modal">
+          <div className="modal-content">
+            <div ref={printRef} className="receipt-print">
+               <h3 align="center">KEDAI RAME 23</h3>
+               <p align="center">Nota: {lastOrder?.noNota} | {lastOrder?.kasir}</p>
+               <hr/>
+               {lastOrder?.items.map((it, i) => <div key={i}>{it.name} x{it.qty}: {it.price*it.qty}</div>)}
+               <hr/>
+               <b>TOTAL: Rp {lastOrder?.total.toLocaleString()}</b>
+            </div>
+            <button onClick={() => { window.print(); }}>PRINT</button>
+            <button onClick={handleClosePayment} style={{background:'#e74c3c'}}>SELESAI</button>
           </div>
         </div>
+      )}
 
-        <button 
-          onClick={onCheckout} 
-          disabled={loading || cart.length === 0}
-          style={{ width: '100%', marginTop: '20px', padding: '20px', background: loading ? '#bdc3c7' : '#27ae60', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 10px 20px rgba(39, 174, 96, 0.2)' }}
-        >
-          {loading ? "MENYIMPAN..." : "BAYAR SEKARANG"}
-        </button>
+      {/* CSS IN JS UNTUK RESPONSIVE */}
+      <style>{`
+        .app-container { display: flex; height: 100vh; font-family: sans-serif; background: #f4f6f8; }
+        .sidebar { width: 90px; background: #1a202c; display: flex; flexDirection: column; align-items: center; padding: 20px 0; }
+        .sidebar button { background: none; border: none; color: #718096; margin-bottom: 25px; cursor: pointer; font-size: 11px; }
+        .sidebar button.active { color: #f6ad55; font-weight: bold; }
+        .menu-area { flex: 1; padding: 20px; overflow-y: auto; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
+        .card { background: #fff; padding: 15px; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); text-align: center; }
+        .emoji { font-size: 30px; }
+        .name { font-size: 13px; font-weight: bold; margin: 10px 0 5px; height: 32px; overflow: hidden; }
+        .price { color: #2ecc71; font-weight: bold; margin-bottom: 10px; }
+        .actions button { font-size: 10px; padding: 5px; margin: 2px; cursor: pointer; }
+        
+        .cart-area { width: 350px; background: #fff; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; padding: 20px; }
+        .nota-input { width: 100%; padding: 12px; border: 2px solid #f6ad55; border-radius: 10px; font-size: 16px; margin-bottom: 15px; box-sizing: border-box; }
+        .cart-items { flex: 1; overflow-y: auto; font-size: 13px; }
+        .item { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid #f7fafc; padding-bottom: 5px; }
+        .pay-btn { width: 100%; padding: 15px; background: #2ecc71; color: #fff; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        
+        .mobile-header, .mobile-categories, .close-cart { display: none; }
 
-        {user.role === 'admin' && (
-          <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '10px', fontSize: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: '#2980b9' }}>
-              <span>Omzet Hari Ini:</span>
-              <span>Rp {totalOmzet.toLocaleString()}</span>
-            </div>
-          </div>
-        )}
-      </div>
+        @media (max-width: 768px) {
+          .sidebar { display: none; }
+          .app-container { flex-direction: column; }
+          .mobile-header { display: flex; justify-content: space-between; background: #1a202c; color: #fff; padding: 15px; align-items: center; }
+          .mobile-categories { display: flex; overflow-x: auto; background: #fff; padding: 10px; gap: 10px; border-bottom: 1px solid #eee; }
+          .mobile-categories button { flex: 0 0 auto; padding: 8px 20px; border-radius: 20px; border: 1px solid #ddd; background: #f8f9fa; }
+          .mobile-categories button.active { background: #f6ad55; color: #fff; border-color: #f6ad55; }
+          .cart-area { position: fixed; right: -100%; top: 0; height: 100%; width: 100%; z-index: 100; transition: 0.3s; }
+          .cart-area.mobile-open { right: 0; }
+          .close-cart { display: block; background: #edf2f7; border: none; padding: 10px; border-radius: 8px; }
+          .grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        .login-screen { height: 100vh; display: flex; justify-content: center; align-items: center; background: #1a202c; }
+        .login-box { background: #fff; padding: 40px; border-radius: 20px; width: 300px; text-align: center; }
+        .login-box input { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
+        .login-box button { width: 100%; padding: 12px; background: #f6ad55; border: none; border-radius: 8px; font-weight: bold; }
+        
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 200; }
+        .modal-content { background: #fff; padding: 20px; border-radius: 15px; width: 300px; }
+        .receipt-print { font-family: monospace; font-size: 12px; margin-bottom: 15px; }
+      `}</style>
     </div>
   );
 }
