@@ -7,6 +7,7 @@ export default function App() {
   const [login, setLogin] = useState({ username: "", pin: "" });
   const [cart, setCart] = useState([]);
   const [noNota, setNoNota] = useState("");
+  const [payMethod, setPayMethod] = useState("Tunai"); // Default Tunai
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("Makanan");
   const [showCartMobile, setShowCartMobile] = useState(false);
@@ -50,16 +51,17 @@ export default function App() {
     if (!noNota) return alert("Isi No Nota!");
     setLoading(true);
     const subtotal = cart.reduce((a, c) => a + (c.price * c.qty), 0);
-    const res = await saveOrder({ noNota, total: subtotal, method: "Tunai", kasir: user.username, cart });
+    // payMethod dikirim ke db.js untuk disimpan di spreadsheet
+    const res = await saveOrder({ noNota, total: subtotal, method: payMethod, kasir: user.username, cart });
     if (res.status === "OK") {
-      setLastOrder({ noNota, kasir: user.username, items: [...cart], total: subtotal, time: new Date().toLocaleString('id-ID') });
+      setLastOrder({ noNota, kasir: user.username, items: [...cart], total: subtotal, method: payMethod, time: new Date().toLocaleString('id-ID') });
       setShowReceipt(true);
     }
     setLoading(false);
   };
 
   const handleClosePayment = () => {
-    setShowReceipt(false); setCart([]); setNoNota(""); setShowCartMobile(false); loadData();
+    setShowReceipt(false); setCart([]); setNoNota(""); setPayMethod("Tunai"); setShowCartMobile(false); loadData();
   };
 
   if (!user) return (
@@ -126,15 +128,31 @@ export default function App() {
         </div>
       </div>
 
-      {/* Cart Drawer */}
+      {/* Cart Panel */}
       <div className={`fixed md:relative top-0 right-0 h-full w-full md:w-96 bg-white shadow-2xl transition-all duration-300 transform ${showCartMobile ? 'translate-x-0' : 'translate-x-full md:translate-x-0'} z-50 flex flex-col`}>
         <div className="p-6 border-b flex justify-between items-center bg-white">
           <h3 className="font-black text-gray-800">PESANAN</h3>
           <button onClick={() => setShowCartMobile(false)} className="md:hidden text-2xl">✕</button>
         </div>
 
-        <div className="p-4">
-          <input type="text" placeholder="NO NOTA / MEJA" value={noNota} onChange={e => setNoNota(e.target.value)} className="w-full p-4 bg-yellow-50 border-2 border-yellow-400 rounded-2xl text-center text-2xl font-black text-yellow-700 outline-none" />
+        <div className="p-4 space-y-4">
+          <input type="text" placeholder="NO NOTA / MEJA" value={noNota} onChange={e => setNoNota(e.target.value)} className="w-full p-4 bg-yellow-50 border-2 border-yellow-400 rounded-2xl text-center text-2xl font-black text-yellow-700 outline-none placeholder:text-yellow-200" />
+          
+          {/* PILIHAN METODE BAYAR */}
+          <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+            <button 
+              onClick={() => setPayMethod("Tunai")}
+              className={`flex-1 py-2 rounded-lg font-bold text-xs transition ${payMethod === "Tunai" ? "bg-orange-500 text-white shadow" : "text-gray-500"}`}
+            >
+              TUNAI
+            </button>
+            <button 
+              onClick={() => setPayMethod("QRIS")}
+              className={`flex-1 py-2 rounded-lg font-bold text-xs transition ${payMethod === "QRIS" ? "bg-blue-500 text-white shadow" : "text-gray-500"}`}
+            >
+              QRIS
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 space-y-4">
@@ -150,39 +168,40 @@ export default function App() {
               </div>
               <div className="flex items-center gap-4">
                 <b className="text-gray-700 text-sm">{(item.price * item.qty).toLocaleString()}</b>
-                <button onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600 text-lg">✕</button>
+                <button onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600 text-lg font-bold">✕</button>
               </div>
             </div>
           ))}
         </div>
 
         <div className="p-6 bg-orange-50 border-t border-orange-100 space-y-4">
-          {cart.length > 0 && <button onClick={() => setCart([])} className="w-full text-[10px] font-bold text-red-500 mb-2 tracking-widest">KOSONGKAN KERANJANG</button>}
+          {cart.length > 0 && <button onClick={() => setCart([])} className="w-full text-[10px] font-bold text-red-500 mb-2 tracking-widest uppercase">Kosongkan Keranjang</button>}
           <div className="flex justify-between items-center text-xl font-black text-orange-900">
             <span>TOTAL</span>
             <span>Rp {cart.reduce((a, c) => a + (c.price * c.qty), 0).toLocaleString()}</span>
           </div>
-          <button onClick={onCheckout} disabled={loading || cart.length === 0} className="w-full py-5 bg-green-600 hover:bg-green-700 text-white rounded-3xl font-black text-lg shadow-xl transition-all disabled:bg-gray-300">
-            {loading ? 'MEMPROSES...' : 'BAYAR SEKARANG'}
+          <button onClick={onCheckout} disabled={loading || cart.length === 0} className="w-full py-5 bg-green-600 hover:bg-green-700 text-white rounded-3xl font-black text-lg shadow-xl transition-all disabled:bg-gray-300 uppercase">
+            {loading ? 'Memproses...' : `Bayar (${payMethod})`}
           </button>
         </div>
       </div>
 
-      {/* Modal Struk */}
+      {/* Modal Print Struk */}
       {showReceipt && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-6">
-          <div className="bg-white p-6 rounded-3xl w-full max-w-xs shadow-2xl overflow-hidden">
+          <div className="bg-white p-6 rounded-3xl w-full max-w-xs shadow-2xl">
             <div ref={printRef} className="font-mono text-[10px] text-black leading-tight">
               <center className="mb-4">
-                <p className="font-bold text-sm">KEDAI RAME 23</p>
-                <p>Jl. Pesanggrahan No. 23</p>
-                <p>--------------------------------</p>
+                <p className="font-bold text-sm text-center">KEDAI RAME 23</p>
+                <p className="text-center">Jl. Pesanggrahan No. 23</p>
+                <p className="text-center">--------------------------------</p>
                 <div className="text-left text-[9px]">
                   Nota : {lastOrder?.noNota}<br/>
                   Kasir : {lastOrder?.kasir}<br/>
-                  Waktu: {lastOrder?.time}
+                  Metode: {lastOrder?.method}<br/>
+                  Waktu : {lastOrder?.time}
                 </div>
-                <p>--------------------------------</p>
+                <p className="text-center">--------------------------------</p>
               </center>
               <div className="space-y-1 mb-4">
                 {lastOrder?.items.map((it, i) => (
@@ -196,7 +215,6 @@ export default function App() {
                 <span>TOTAL</span>
                 <span>Rp {lastOrder?.total.toLocaleString()}</span>
               </p>
-              <center className="mt-4"><p>Terima Kasih!</p><p>Selamat Menikmati</p></center>
             </div>
             <div className="flex gap-2 mt-6">
               <button onClick={() => window.print()} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold">PRINT</button>
