@@ -1,17 +1,24 @@
 // db.js - FULL FIXED
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwMJshHjgSPSPhR1lKnaVwxTmVgQ3CXby-29RvU6y6ZLGFof8tf-7HAR7QMj8EBDD1y/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbQqwmeOHRMrbzUvEu3krvuwA4ccU3KrqmZMoiUkCQp3Vmn-ucizw1eDWDsY21rj-w2mA/exec";
 const SECRET_TOKEN = "BQsi2277";
 
 export const saveOrder = async (orderData) => {
   const payload = {
     token: SECRET_TOKEN,
     action: "addOrder",
-    no_nota: orderData.noNota,
+    no_pesanan: orderData.noNota,
     kasir: orderData.kasir,
-    meja: orderData.meja,
+    total: orderData.total, // Sudah dipotong diskon manual dari App.jsx
     method: orderData.method,
-    discount: orderData.discount, // Nominal Diskon (Rp)
-    items: orderData.cart // Array berisi {name, category, qty, price}
+    // Mencatat detail Nama Menu + Opsi di kolom Items Spreadsheet
+    items_string: orderData.cart.map(i => 
+      `${i.name}${i.option ? ' ('+i.option+')' : ''} x${i.qty}`
+    ).join(", "),
+    // Hanya mengirim ID menu utama untuk dipotong stoknya oleh Apps Script
+    cart: orderData.cart.map(item => ({
+      id: item.id, 
+      quantity: item.qty
+    }))
   };
 
   try {
@@ -21,6 +28,6 @@ export const saveOrder = async (orderData) => {
     });
     return await response.json();
   } catch (error) {
-    return { status: "ERROR", message: error.message };
+    return { status: "ERROR", msg: error.message };
   }
 };
