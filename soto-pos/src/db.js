@@ -1,67 +1,37 @@
-// db.js - KONEKSI DATABASE KEDAI RAME 23
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw0YKDG1Jur62Biunz7LHvk3s7SAgFDHmeChL2BGZGEZPVl8xkn23U5hG0cvoLxM0cvnw/exec";
-const SECRET_TOKEN = "BQsi2277";
+const URL_API = "https://script.google.com/macros/s/AKfycbz1N05imo_byeZovhxEq2Gb_EsN__GIAq9bzVeJ28hitRCnd2YDOvOKhYFGDLGPN3I_lA/exec";
 
-/**
- * Mengambil data awal (Menu, Users, Config, Orders)
- */
 export const getInitialData = async () => {
   try {
-    const res = await fetch(`${WEB_APP_URL}?action=getData&token=${SECRET_TOKEN}`);
-    const data = await res.json();
-    return data;
-  } catch (e) {
-    console.error("Gagal memuat data dari Google Sheets:", e);
+    const res = await fetch(URL_API);
+    return await res.json();
+  } catch (err) {
+    console.error("Gagal ambil data:", err);
     return null;
   }
 };
 
-/**
- * Menyimpan pesanan baru ke Google Sheets
- */
 export const saveOrder = async (orderData) => {
   try {
-    const payload = {
-      token: SECRET_TOKEN,
-      action: "addOrder",
-      no_pesanan: orderData.noNota,
-      kasir: orderData.kasir,
-      total: orderData.total,
-      method: "Tunai",
-      // Menggabungkan nama item dan pilihan karbo menjadi string untuk kolom 'Items'
-      items_string: orderData.cart.map(i => `${i.name} (${i.option}) x${i.qty}`).join(", "),
-      cart: orderData.cart // Mengirim array objek untuk keperluan potong stok
-    };
-
-    const response = await fetch(WEB_APP_URL, {
+    const res = await fetch(URL_API, {
       method: "POST",
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ action: "saveOrder", ...orderData }),
     });
-    return await response.json();
-  } catch (e) {
-    console.error("Gagal menyimpan pesanan:", e);
-    return { status: "ERROR", msg: e.message };
+    return await res.json();
+  } catch (err) {
+    console.error("Gagal simpan order:", err);
+    return { status: "ERROR" };
   }
 };
 
-/**
- * Mengupdate status shift (OPEN/CLOSED)
- */
 export const updateShiftStatus = async (status) => {
   try {
-    const payload = {
-      token: SECRET_TOKEN,
-      action: "updateShift",
-      status: status
-    };
-
-    const response = await fetch(WEB_APP_URL, {
+    const res = await fetch(URL_API, {
       method: "POST",
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ action: "updateShift", status: status }),
     });
-    return await response.json();
-  } catch (e) {
-    console.error("Gagal update shift:", e);
-    return { status: "ERROR", msg: e.message };
+    return await res.json();
+  } catch (err) {
+    console.error("Gagal update shift:", err);
+    return { status: "ERROR" };
   }
 };
