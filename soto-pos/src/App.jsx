@@ -25,16 +25,21 @@ export default function App() {
   const handleLogin = (e) => {
     e.preventDefault();
     const found = db.users.find(u => u.username === login.username && u.pin === login.pin);
-    if (found) setUser(found); else alert("Login Gagal! PIN salah.");
+    if (found) setUser(found); else alert("Login Gagal! PIN/User salah.");
   };
 
-  const addToCart = (item, opt = "Nasi") => {
-    const option = item.options.length > 0 ? opt : null;
-    const exist = cart.find(x => x.id === item.id && x.option === option);
+  const addToCart = (item, opt = "Lontong") => {
+    let priceAdj = item.price; 
+    if (opt === "Singkong") priceAdj -= 1000;
+    if (opt === "Nasi") priceAdj += 1000;
+
+    const optionLabel = item.options.length > 0 ? opt : null;
+    const exist = cart.find(x => x.id === item.id && x.option === optionLabel);
+    
     if (exist) {
-      setCart(cart.map(x => (x.id === item.id && x.option === option) ? {...exist, qty: exist.qty + 1} : x));
+      setCart(cart.map(x => (x.id === item.id && x.option === optionLabel) ? {...exist, qty: exist.qty + 1} : x));
     } else {
-      setCart([...cart, { ...item, qty: 1, option }]);
+      setCart([...cart, { ...item, price: priceAdj, qty: 1, option: optionLabel }]);
     }
   };
 
@@ -45,7 +50,7 @@ export default function App() {
     const totalFinal = subtotal - diskon;
     const res = await saveOrder({ noNota, total: totalFinal, method: "Tunai", kasir: user.username, cart });
     if (res.status === "OK") {
-      setLastOrder({ noNota, kasir: user.username, items: [...cart], subtotal, diskon, total: totalFinal, time: new Date().toLocaleString() });
+      setLastOrder({ noNota, kasir: user.username, items: [...cart], subtotal, diskon, total: totalFinal, time: new Date().toLocaleString('id-ID') });
       setShowReceipt(true);
     }
     setLoading(false);
@@ -58,11 +63,11 @@ export default function App() {
   if (!user) return (
     <div className="login-screen">
       <div className="login-box">
-        <h1>KEDAI RAME 23</h1>
+        <h2 style={{color: '#2d3748', marginBottom: '20px'}}>KEDAI RAME 23</h2>
         <form onSubmit={handleLogin}>
-          <input type="text" placeholder="Username" onChange={e => setLogin({...login, username: e.target.value})} />
-          <input type="password" placeholder="PIN" onChange={e => setLogin({...login, pin: e.target.value})} />
-          <button type="submit">MASUK KASIR</button>
+          <input type="text" placeholder="Username" onChange={e => setLogin({...login, username: e.target.value})} className="input-field" />
+          <input type="password" placeholder="PIN" onChange={e => setLogin({...login, pin: e.target.value})} className="input-field" />
+          <button type="submit" className="btn-login">MASUK</button>
         </form>
       </div>
     </div>
@@ -72,134 +77,174 @@ export default function App() {
     <div className="app-container">
       {/* HEADER MOBILE */}
       <div className="mobile-header">
-        <span><b>KR23</b> - {user.username}</span>
-        <button onClick={() => setShowCartMobile(!showCartMobile)}>🛒 {cart.length}</button>
+        <span><b>KR23</b> | {user.username}</span>
+        <button onClick={() => setShowCartMobile(true)}>🛒 {cart.length}</button>
       </div>
 
-      {/* SIDEBAR NAVIGATION (LAPTOP ONLY) */}
+      {/* SIDEBAR LAPTOP */}
       <div className="sidebar">
-        <div className="logo">KR</div>
-        {["Makanan", "Minuman", "Jajanan"].map(cat => (
+        <div className="logo-circle">KR</div>
+        {["Makanan", "Minuman", "Jajanan", "Extra"].map(cat => (
           <button key={cat} className={activeTab === cat ? 'active' : ''} onClick={() => setActiveTab(cat)}>{cat}</button>
         ))}
-        <button className="logout-btn" onClick={() => setUser(null)}>EXIT</button>
+        <button onClick={() => setUser(null)} className="btn-exit">OUT</button>
       </div>
 
-      {/* CATEGORY BAR (MOBILE ONLY) */}
-      <div className="mobile-categories">
-        {["Makanan", "Minuman", "Jajanan"].map(cat => (
-          <button key={cat} className={activeTab === cat ? 'active' : ''} onClick={() => setActiveTab(cat)}>{cat}</button>
-        ))}
-      </div>
-
-      {/* MENU GRID */}
-      <div className="menu-area">
-        <div className="admin-status">
-          <span>Shift: <b style={{color: db.shiftStatus === 'OPEN' ? '#2ecc71' : '#e74c3c'}}>{db.shiftStatus}</b></span>
-          {user.role === 'admin' && <button onClick={() => updateShiftStatus(db.shiftStatus === 'OPEN' ? "CLOSED" : "OPEN").then(loadData)}>Toggle Shift</button>}
+      {/* MAIN CONTENT */}
+      <div className="main-content">
+        <div className="top-bar">
+          <div className="mobile-tabs">
+            {["Makanan", "Minuman", "Jajanan", "Extra"].map(cat => (
+              <button key={cat} className={activeTab === cat ? 'active' : ''} onClick={() => setActiveTab(cat)}>{cat}</button>
+            ))}
+          </div>
+          <div className="shift-badge">
+            Shift: <b style={{color: db.shiftStatus === 'OPEN' ? '#38a169' : '#e53e3e'}}>{db.shiftStatus}</b>
+          </div>
         </div>
-        <div className="grid">
+
+        <div className="menu-grid">
           {db.menu.filter(m => m.category === activeTab).map(m => (
-            <div key={m.id} className="card">
-              <span className="emoji">{m.img}</span>
-              <div className="info">
-                <p className="name">{m.name}</p>
-                <p className="price">Rp {m.price.toLocaleString()}</p>
+            <div key={m.id} className="menu-card">
+              <span className="menu-emoji">{m.img || '🥣'}</span>
+              <div className="menu-info">
+                <p className="m-name">{m.name}</p>
+                <p className="m-price">Rp {m.price.toLocaleString()}</p>
               </div>
-              <div className="actions">
-                {m.options.length > 0 ? m.options.map(o => (
-                  <button key={o} onClick={() => addToCart(m, o)}>{o}</button>
-                )) : <button onClick={() => addToCart(m)}>Tambah</button>}
+              <div className="m-actions">
+                {m.options.length > 0 ? (
+                  <div className="opt-group">
+                    {m.options.map(o => (
+                      <button key={o} onClick={() => addToCart(m, o)} className={`btn-opt ${o}`}>
+                        {o} <br/> <small>{o==='Nasi'?'+1k':o==='Singkong'?'-1k':'Ori'}</small>
+                      </button>
+                    ))}
+                  </div>
+                ) : <button onClick={() => addToCart(m)} className="btn-add">Tambah</button>}
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* CART AREA (LAPTOP & MOBILE DRAWER) */}
-      <div className={`cart-area ${showCartMobile ? 'mobile-open' : ''}`}>
-        <div className="cart-header">
-          <h3>Pesanan</h3>
-          <button className="close-cart" onClick={() => setShowCartMobile(false)}>✕ Close</button>
-        </div>
-        <input type="text" placeholder="No. Nota" value={noNota} onChange={e => setNoNota(e.target.value)} className="nota-input" />
-        
-        <div className="cart-items">
-          {cart.map((item, idx) => (
-            <div key={idx} className="item">
-              <span>{item.name} ({item.option}) x{item.qty}</span>
-              <b>{(item.price * item.qty).toLocaleString()}</b>
-            </div>
-          ))}
-        </div>
+      {/* CART PANEL */}
+      <div className={`cart-panel ${showCartMobile ? 'open' : ''}`}>
+        <div className="cart-inner">
+          <div className="cart-head">
+            <h3>Keranjang</h3>
+            <button className="btn-close-cart" onClick={() => setShowCartMobile(false)}>✕</button>
+          </div>
+          <input type="text" placeholder="No. Nota / Meja" value={noNota} onChange={e => setNoNota(e.target.value)} className="nota-input" />
+          
+          <div className="cart-list">
+            {cart.map((item, i) => (
+              <div key={i} className="cart-item">
+                <div style={{flex: 1}}>
+                  <p style={{margin:0, fontWeight:'bold', fontSize:'13px'}}>{item.name}</p>
+                  <small>{item.option} x{item.qty}</small>
+                </div>
+                <b>{(item.price * item.qty).toLocaleString()}</b>
+              </div>
+            ))}
+          </div>
 
-        <div className="summary">
-          <div className="row"><span>Total</span><b>Rp {(cart.reduce((a, c) => a + (c.price * c.qty), 0) - diskon).toLocaleString()}</b></div>
-          <button onClick={onCheckout} disabled={loading || cart.length === 0} className="pay-btn">{loading ? "..." : "BAYAR"}</button>
+          <div className="cart-footer">
+            <div className="foot-row"><span>Total</span><b>Rp {(cart.reduce((a, c) => a + (c.price * c.qty), 0) - diskon).toLocaleString()}</b></div>
+            <button onClick={onCheckout} disabled={loading || cart.length === 0} className="btn-pay">
+              {loading ? "MEMPROSES..." : "KONFIRMASI BAYAR"}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* MODAL PRINT */}
+      {/* STRUK MODAL */}
       {showReceipt && (
-        <div className="modal">
-          <div className="modal-content">
-            <div ref={printRef} className="receipt-print">
-               <h3 align="center">KEDAI RAME 23</h3>
-               <p align="center">Nota: {lastOrder?.noNota} | {lastOrder?.kasir}</p>
-               <hr/>
-               {lastOrder?.items.map((it, i) => <div key={i}>{it.name} x{it.qty}: {it.price*it.qty}</div>)}
-               <hr/>
-               <b>TOTAL: Rp {lastOrder?.total.toLocaleString()}</b>
+        <div className="modal-overlay">
+          <div className="modal-box">
+            <div ref={printRef} className="thermal-print">
+              <center>
+                <h3>KEDAI RAME 23</h3>
+                <small>Jl. Pesanggrahan No. 23</small>
+                <p>-------------------------</p>
+                <div style={{textAlign:'left'}}>
+                  Nota: {lastOrder?.noNota}<br/>
+                  Kasir: {lastOrder?.kasir}<br/>
+                  {lastOrder?.time}
+                </div>
+                <p>-------------------------</p>
+              </center>
+              {lastOrder?.items.map((it, i) => (
+                <div key={i} style={{display:'flex', justifyContent:'space-between', marginBottom:'4px'}}>
+                  <span>{it.name} ({it.option}) x{it.qty}</span>
+                  <span>{(it.price * it.qty).toLocaleString()}</span>
+                </div>
+              ))}
+              <p>-------------------------</p>
+              <div style={{display:'flex', justifyContent:'space-between'}}><span>TOTAL</span><b>Rp {lastOrder?.total.toLocaleString()}</b></div>
+              <center><p>Terima Kasih!</p></center>
             </div>
-            <button onClick={() => { window.print(); }}>PRINT</button>
-            <button onClick={handleClosePayment} style={{background:'#e74c3c'}}>SELESAI</button>
+            <div className="modal-actions">
+              <button onClick={() => window.print()} className="btn-print">PRINT STRUK</button>
+              <button onClick={handleClosePayment} className="btn-close-pay">SELESAI</button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* CSS IN JS UNTUK RESPONSIVE */}
       <style>{`
-        .app-container { display: flex; height: 100vh; font-family: sans-serif; background: #f4f6f8; }
-        .sidebar { width: 90px; background: #1a202c; display: flex; flexDirection: column; align-items: center; padding: 20px 0; }
-        .sidebar button { background: none; border: none; color: #718096; margin-bottom: 25px; cursor: pointer; font-size: 11px; }
-        .sidebar button.active { color: #f6ad55; font-weight: bold; }
-        .menu-area { flex: 1; padding: 20px; overflow-y: auto; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
-        .card { background: #fff; padding: 15px; border-radius: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); text-align: center; }
-        .emoji { font-size: 30px; }
-        .name { font-size: 13px; font-weight: bold; margin: 10px 0 5px; height: 32px; overflow: hidden; }
-        .price { color: #2ecc71; font-weight: bold; margin-bottom: 10px; }
-        .actions button { font-size: 10px; padding: 5px; margin: 2px; cursor: pointer; }
+        .app-container { display: flex; height: 100vh; background: #f7fafc; overflow: hidden; font-family: 'Inter', sans-serif; }
+        .sidebar { width: 90px; background: #2d3748; display: flex; flex-direction: column; align-items: center; padding: 20px 0; gap: 20px; }
+        .logo-circle { width: 50px; height: 50px; background: #ecc94b; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; }
+        .sidebar button { background: none; border: none; color: #a0aec0; font-size: 11px; cursor: pointer; }
+        .sidebar button.active { color: #ecc94b; font-weight: bold; }
+        .btn-exit { margin-top: auto; color: #fc8181 !important; }
         
-        .cart-area { width: 350px; background: #fff; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; padding: 20px; }
-        .nota-input { width: 100%; padding: 12px; border: 2px solid #f6ad55; border-radius: 10px; font-size: 16px; margin-bottom: 15px; box-sizing: border-box; }
-        .cart-items { flex: 1; overflow-y: auto; font-size: 13px; }
-        .item { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid #f7fafc; padding-bottom: 5px; }
-        .pay-btn { width: 100%; padding: 15px; background: #2ecc71; color: #fff; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        
-        .mobile-header, .mobile-categories, .close-cart { display: none; }
+        .main-content { flex: 1; display: flex; flex-direction: column; padding: 20px; overflow-y: auto; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
+        .menu-card { background: #fff; border-radius: 15px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); text-align: center; }
+        .menu-emoji { font-size: 32px; }
+        .m-name { font-weight: bold; font-size: 14px; margin: 10px 0 5px; height: 35px; overflow: hidden; }
+        .m-price { color: #38a169; font-weight: bold; margin-bottom: 12px; }
+        .opt-group { display: flex; gap: 4px; }
+        .btn-opt { flex: 1; font-size: 9px; padding: 5px 0; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; background: #fff; }
+        .btn-opt.Nasi { background: #fffaf0; }
+        .btn-opt.Singkong { background: #f0fff4; }
+        .btn-add { width: 100%; padding: 8px; background: #2d3748; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
+
+        .cart-panel { width: 350px; background: #fff; border-left: 1px solid #e2e8f0; transition: 0.3s; }
+        .cart-inner { height: 100%; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; }
+        .nota-input { width: 100%; padding: 15px; border: 2px solid #ecc94b; border-radius: 10px; font-size: 18px; font-weight: bold; margin-bottom: 15px; box-sizing: border-box; }
+        .cart-list { flex: 1; overflow-y: auto; }
+        .cart-item { display: flex; justify-content: space-between; border-bottom: 1px solid #f7fafc; padding: 10px 0; }
+        .btn-pay { width: 100%; padding: 15px; background: #38a169; color: #fff; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-box { background: #fff; padding: 25px; border-radius: 20px; width: 300px; }
+        .thermal-print { font-family: 'Courier New', monospace; font-size: 12px; margin-bottom: 20px; }
+        .modal-actions { display: flex; gap: 10px; }
+        .btn-print { flex: 2; padding: 12px; background: #3182ce; color: #fff; border: none; border-radius: 10px; cursor: pointer; }
+        .btn-close-pay { flex: 1; padding: 12px; background: #e53e3e; color: #fff; border: none; border-radius: 10px; cursor: pointer; }
+
+        .login-screen { height: 100vh; display: flex; justify-content: center; align-items: center; background: #1a202c; }
+        .login-box { background: #fff; padding: 40px; border-radius: 24px; width: 300px; text-align: center; }
+        .input-field { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #e2e8f0; border-radius: 10px; box-sizing: border-box; }
+        .btn-login { width: 100%; padding: 12px; background: #ecc94b; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+
+        .mobile-header, .btn-close-cart, .mobile-tabs { display: none; }
 
         @media (max-width: 768px) {
           .sidebar { display: none; }
-          .app-container { flex-direction: column; }
-          .mobile-header { display: flex; justify-content: space-between; background: #1a202c; color: #fff; padding: 15px; align-items: center; }
-          .mobile-categories { display: flex; overflow-x: auto; background: #fff; padding: 10px; gap: 10px; border-bottom: 1px solid #eee; }
-          .mobile-categories button { flex: 0 0 auto; padding: 8px 20px; border-radius: 20px; border: 1px solid #ddd; background: #f8f9fa; }
-          .mobile-categories button.active { background: #f6ad55; color: #fff; border-color: #f6ad55; }
-          .cart-area { position: fixed; right: -100%; top: 0; height: 100%; width: 100%; z-index: 100; transition: 0.3s; }
-          .cart-area.mobile-open { right: 0; }
-          .close-cart { display: block; background: #edf2f7; border: none; padding: 10px; border-radius: 8px; }
-          .grid { grid-template-columns: 1fr 1fr; }
+          .mobile-header { display: flex; justify-content: space-between; padding: 15px 20px; background: #2d3748; color: #fff; align-items: center; }
+          .mobile-tabs { display: flex; overflow-x: auto; gap: 10px; padding-bottom: 10px; flex: 1; }
+          .mobile-tabs button { flex-shrink: 0; padding: 6px 15px; border-radius: 15px; border: 1px solid #ddd; background: #fff; font-size: 12px; }
+          .mobile-tabs button.active { background: #ecc94b; border-color: #ecc94b; font-weight: bold; }
+          .cart-panel { position: fixed; right: -100%; top: 0; height: 100%; width: 100%; z-index: 500; }
+          .cart-panel.open { right: 0; }
+          .btn-close-cart { display: block; background: #edf2f7; border: none; width: 35px; height: 35px; border-radius: 50%; }
+          .cart-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+          .menu-grid { grid-template-columns: 1fr 1fr; }
         }
-
-        .login-screen { height: 100vh; display: flex; justify-content: center; align-items: center; background: #1a202c; }
-        .login-box { background: #fff; padding: 40px; border-radius: 20px; width: 300px; text-align: center; }
-        .login-box input { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
-        .login-box button { width: 100%; padding: 12px; background: #f6ad55; border: none; border-radius: 8px; font-weight: bold; }
-        
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 200; }
-        .modal-content { background: #fff; padding: 20px; border-radius: 15px; width: 300px; }
-        .receipt-print { font-family: monospace; font-size: 12px; margin-bottom: 15px; }
       `}</style>
     </div>
   );
