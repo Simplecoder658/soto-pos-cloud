@@ -1,4 +1,3 @@
-// App.jsx - FULL FIXED
 import React, { useState, useEffect } from 'react';
 import { getInitialData, saveOrder, updateShiftStatus } from './db';
 
@@ -10,6 +9,7 @@ export default function App() {
   const [noNota, setNoNota] = useState("");
   const [diskon, setDiskon] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("Makanan");
 
   useEffect(() => { loadData(); }, []);
 
@@ -21,7 +21,7 @@ export default function App() {
   const handleLogin = (e) => {
     e.preventDefault();
     const found = db.users.find(u => u.username === login.username && u.pin === login.pin);
-    if (found) setUser(found); else alert("Login Gagal! Username atau PIN Salah.");
+    if (found) setUser(found); else alert("Login Gagal! PIN salah.");
   };
 
   const addToCart = (item, opt = "Nasi") => {
@@ -34,8 +34,14 @@ export default function App() {
     }
   };
 
+  const removeItem = (index) => {
+    const newCart = [...cart];
+    newCart.splice(index, 1);
+    setCart(newCart);
+  };
+
   const onCheckout = async () => {
-    if (!noNota) return alert("Nomor Nota Kosong!");
+    if (!noNota) return alert("Masukkan Nomor Nota!");
     setLoading(true);
     const subtotal = cart.reduce((a, c) => a + (c.price * c.qty), 0);
     const res = await saveOrder({ noNota, total: subtotal - diskon, method: "Tunai", kasir: user.username, cart });
@@ -46,72 +52,129 @@ export default function App() {
     setLoading(false);
   };
 
-  // Filter: Admin tidak masuk laporan omzet (Testing Mode)
+  const categories = ["Makanan", "Minuman", "Jajanan", "Extra"];
   const realOrders = db.orders.filter(o => o.kasir !== "admin");
   const totalOmzet = realOrders.reduce((a, c) => a + Number(c.total), 0);
 
+  // LOGIN SCREEN
   if (!user) return (
-    <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#2c3e50' }}>
-      <form onSubmit={handleLogin} style={{ background: '#fff', padding: '30px', borderRadius: '15px', width: '300px' }}>
-        <h2 style={{ textAlign: 'center' }}>SOTO POS LOGIN</h2>
-        <input type="text" placeholder="Username" onChange={e => setLogin({...login, username: e.target.value})} style={{ width: '100%', padding: '10px', marginBottom: '10px' }} />
-        <input type="password" placeholder="PIN" onChange={e => setLogin({...login, pin: e.target.value})} style={{ width: '100%', padding: '10px', marginBottom: '20px' }} />
-        <button type="submit" style={{ width: '100%', padding: '10px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>MASUK</button>
-      </form>
+    <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'linear-gradient(135deg, #2c3e50, #000)', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', padding: '40px', borderRadius: '24px', width: '350px', border: '1px solid rgba(255,255,255,0.2)', textAlign: 'center' }}>
+        <h1 style={{ color: '#fff', fontSize: '28px', marginBottom: '10px', fontWeight: '800' }}>KEDAI RAME 23</h1>
+        <p style={{ color: '#ccc', marginBottom: '30px' }}>Silakan masukkan PIN Kasir</p>
+        <form onSubmit={handleLogin}>
+          <input type="text" placeholder="Username" onChange={e => setLogin({...login, username: e.target.value})} style={{ width: '100%', padding: '15px', marginBottom: '15px', borderRadius: '12px', border: 'none', background: '#fff' }} />
+          <input type="password" placeholder="PIN" onChange={e => setLogin({...login, pin: e.target.value})} style={{ width: '100%', padding: '15px', marginBottom: '25px', borderRadius: '12px', border: 'none', background: '#fff' }} />
+          <button type="submit" style={{ width: '100%', padding: '15px', background: '#f1c40f', color: '#000', border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>MASUK</button>
+        </form>
+      </div>
     </div>
   );
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'sans-serif', display: 'flex', gap: '20px', background: '#f4f7f6', minHeight: '100vh' }}>
-      {/* KIRI: MENU */}
-      <div style={{ flex: 2 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-          <h3>MENU KEDAI RAME (Shift: {db.shiftStatus})</h3>
-          <button onClick={() => setUser(null)} style={{ background: '#e74c3c', color: '#fff', border: 'none', padding: '5px 15px', borderRadius: '5px' }}>Logout</button>
+    <div style={{ display: 'flex', height: '100vh', background: '#f0f2f5', fontFamily: 'Inter, sans-serif', overflow: 'hidden' }}>
+      
+      {/* SIDEBAR NAVIGATION */}
+      <div style={{ width: '100px', background: '#fff', borderRight: '1px solid #e0e0e0', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 0' }}>
+        <div style={{ width: '50px', height: '50px', background: '#f1c40f', borderRadius: '15px', marginBottom: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: 'bold' }}>KR</div>
+        {categories.map(cat => (
+          <button key={cat} onClick={() => setActiveTab(cat)} style={{ background: 'none', border: 'none', marginBottom: '25px', color: activeTab === cat ? '#f1c40f' : '#95a5a6', cursor: 'pointer', transition: '0.3s' }}>
+            <div style={{ fontSize: '12px', fontWeight: activeTab === cat ? 'bold' : 'normal' }}>{cat}</div>
+          </button>
+        ))}
+        <button onClick={() => setUser(null)} style={{ marginTop: 'auto', background: '#fee2e2', border: 'none', padding: '10px', borderRadius: '10px', color: '#ef4444', cursor: 'pointer' }}>OFF</button>
+      </div>
+
+      {/* MAIN CONTENT: MENU */}
+      <div style={{ flex: 2, padding: '30px', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '24px', fontWeight: '800' }}>Pilih Menu</h2>
+            <p style={{ margin: 0, color: '#7f8c8d' }}>User: {user.username} | Shift: <span style={{ color: db.shiftStatus === 'OPEN' ? '#27ae60' : '#e74c3c' }}>{db.shiftStatus}</span></p>
+          </div>
+          {user.role === 'admin' && (
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => updateShiftStatus("OPEN").then(loadData)} style={{ background: '#27ae60', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer' }}>Buka Shift</button>
+              <button onClick={() => updateShiftStatus("CLOSED").then(loadData)} style={{ background: '#e74c3c', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer' }}>Tutup Shift</button>
+            </div>
+          )}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px' }}>
-          {db.menu.map(m => (
-            <div key={m.id} style={{ background: '#fff', padding: '15px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-              <strong>{m.name}</strong> <br/> Rp {m.price.toLocaleString()} <br/>
-              {m.options.length > 0 ? m.options.map(o => (
-                <button key={o} onClick={() => addToCart(m, o)} style={{ fontSize: '10px', marginRight: '5px', marginTop: '10px' }}>+ {o}</button>
-              )) : <button onClick={() => addToCart(m)} style={{ width: '100%', marginTop: '10px' }}>Tambah</button>}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px' }}>
+          {db.menu.filter(m => m.category === activeTab).map(m => (
+            <div key={m.id} style={{ background: '#fff', borderRadius: '20px', padding: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', transition: '0.3s' }}>
+              <div style={{ fontSize: '30px', marginBottom: '10px' }}>{m.img || '🥣'}</div>
+              <div style={{ fontWeight: 'bold', fontSize: '16px', height: '40px', overflow: 'hidden' }}>{m.name}</div>
+              <div style={{ color: '#27ae60', fontWeight: '800', margin: '10px 0' }}>Rp {m.price.toLocaleString()}</div>
+              <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                {m.options.length > 0 ? m.options.map(o => (
+                  <button key={o} onClick={() => addToCart(m, o)} style={{ flex: 1, padding: '8px', fontSize: '11px', background: '#f8f9fa', border: '1px solid #eee', borderRadius: '8px', cursor: 'pointer' }}>{o}</button>
+                )) : (
+                  <button onClick={() => addToCart(m)} style={{ width: '100%', padding: '8px', background: '#34495e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Tambah</button>
+                )}
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* KANAN: KASIR & ADMIN PANEL */}
-      <div style={{ flex: 1.2 }}>
+      {/* RIGHT SIDE: CART / STRUK */}
+      <div style={{ width: '400px', background: '#fff', borderLeft: '1px solid #e0e0e0', display: 'flex', flexDirection: 'column', padding: '30px' }}>
+        <h3 style={{ marginTop: 0 }}>Keranjang Belanja</h3>
+        <input 
+          type="text" 
+          placeholder="No. Nota / Antrian" 
+          value={noNota} 
+          onChange={e => setNoNota(e.target.value)} 
+          style={{ width: '100%', padding: '15px', background: '#fff9c4', border: '2px solid #f1c40f', borderRadius: '12px', fontSize: '18px', fontWeight: 'bold', marginBottom: '20px', boxSizing: 'border-box' }} 
+        />
+
+        <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px' }}>
+          {cart.length === 0 ? (
+            <p style={{ textAlign: 'center', color: '#bdc3c7', marginTop: '50px' }}>Belum ada item dipilih</p>
+          ) : cart.map((item, idx) => (
+            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', alignItems: 'center' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{item.name}</div>
+                <div style={{ fontSize: '12px', color: '#7f8c8d' }}>{item.option && `Pilihan: ${item.option}`} x{item.qty}</div>
+              </div>
+              <div style={{ fontWeight: 'bold', marginRight: '10px' }}>{(item.price * item.qty).toLocaleString()}</div>
+              <button onClick={() => removeItem(idx)} style={{ color: '#e74c3c', border: 'none', background: 'none', cursor: 'pointer' }}>✕</button>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '15px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <span>Subtotal</span>
+            <span>Rp {cart.reduce((a, c) => a + (c.price * c.qty), 0).toLocaleString()}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <span>Diskon Manual</span>
+            <input type="number" value={diskon} onChange={e => setDiskon(Number(e.target.value))} style={{ width: '100px', textAlign: 'right', padding: '5px', border: '1px solid #ddd', borderRadius: '5px' }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '22px', fontWeight: '800', color: '#27ae60' }}>
+            <span>TOTAL</span>
+            <span>Rp {(cart.reduce((a, c) => a + (c.price * c.qty), 0) - diskon).toLocaleString()}</span>
+          </div>
+        </div>
+
+        <button 
+          onClick={onCheckout} 
+          disabled={loading || cart.length === 0}
+          style={{ width: '100%', marginTop: '20px', padding: '20px', background: loading ? '#bdc3c7' : '#27ae60', color: '#fff', border: 'none', borderRadius: '15px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 10px 20px rgba(39, 174, 96, 0.2)' }}
+        >
+          {loading ? "MENYIMPAN..." : "BAYAR SEKARANG"}
+        </button>
+
         {user.role === 'admin' && (
-          <div style={{ background: '#fff', padding: '15px', borderRadius: '10px', marginBottom: '20px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-            <h4 style={{ color: '#2980b9', margin: '0 0 10px 0' }}>ADMIN DASHBOARD</h4>
-            <button onClick={async () => { await updateShiftStatus("OPEN"); loadData(); }}>Buka Shift</button>
-            <button onClick={async () => { await updateShiftStatus("CLOSED"); loadData(); }} style={{ marginLeft: '10px' }}>Tutup Shift</button>
-            <hr/>
-            <p>Omzet Hari Ini (Kasir): <b>Rp {totalOmzet.toLocaleString()}</b></p>
-            <div style={{ maxHeight: '150px', overflowY: 'auto', fontSize: '11px', background: '#f9f9f9', padding: '5px' }}>
-              {realOrders.map((o, i) => <div key={i} style={{ borderBottom: '1px solid #ddd' }}>{o.noNota} | {o.kasir} | Rp {o.total.toLocaleString()}</div>)}
+          <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '10px', fontSize: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: '#2980b9' }}>
+              <span>Omzet Hari Ini:</span>
+              <span>Rp {totalOmzet.toLocaleString()}</span>
             </div>
           </div>
         )}
-
-        <div style={{ background: '#fff', padding: '15px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-          <h4>KASIR: {user.username.toUpperCase()}</h4>
-          <input type="text" placeholder="No Nota" value={noNota} onChange={e => setNoNota(e.target.value)} style={{ width: '100%', padding: '10px', background: '#fff9c4', border: '1px solid #f1c40f', boxSizing: 'border-box' }} />
-          <div style={{ minHeight: '150px', marginTop: '15px', borderBottom: '1px solid #eee' }}>
-            {cart.map((c, i) => <div key={i} style={{ fontSize: '14px' }}>{c.name} {c.option && `(${c.option})`} x{c.qty}</div>)}
-          </div>
-          <div style={{ marginTop: '15px' }}>
-            <span>Diskon Manual: </span>
-            <input type="number" value={diskon} onChange={e => setDiskon(Number(e.target.value))} style={{ width: '80px', textAlign: 'right' }} />
-          </div>
-          <h3 style={{ color: '#27ae60' }}>TOTAL: Rp {(cart.reduce((a, c) => a + (c.price * c.qty), 0) - diskon).toLocaleString()}</h3>
-          <button onClick={onCheckout} disabled={loading} style={{ width: '100%', padding: '15px', background: '#2c3e50', color: '#fff', fontWeight: 'bold', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-            {loading ? "MENYIMPAN..." : "KONFIRMASI SELESAI"}
-          </button>
-          {user.username === 'admin' && <p style={{ color: 'red', fontSize: '10px', marginTop: '10px' }}>* Mode Admin Aktif (Administrator/Testing)</p>}
-        </div>
       </div>
     </div>
   );
