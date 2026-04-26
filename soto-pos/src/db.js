@@ -1,11 +1,11 @@
-const URL_API = "https://script.google.com/macros/s/AKfycbxfoQ3NI-vApY14LYlY7D1VqCi0-1JHaROSRP_Ph9EcUPFPnyyy7SebhIHLjvzWmPtb9Q/exec";
+const URL_API = "https://script.google.com/macros/s/AKfycbyU6Cl0sMw5hlbcX8TxRUBSF1qm0_OxkEFeIMbcieW5v4YFq3jNUwDzGH0UdDBgPZ5r/exec";
 
 export const getInitialData = async () => {
   try {
     const res = await fetch(URL_API);
     return await res.json();
   } catch (err) {
-    console.error("Gagal load data:", err);
+    console.error("Gagal mengambil data:", err);
     return null;
   }
 };
