@@ -1,11 +1,11 @@
-const URL_API = "https://script.google.com/macros/s/AKfycbwgHjog94j7AVWTAm9YKtLL29B4WYUlCGDo1niCj3Ti53t0QRBeqWEcWB85adI_-YH67A/exec";
+const URL_API = "https://script.google.com/macros/s/AKfycbxfoQ3NI-vApY14LYlY7D1VqCi0-1JHaROSRP_Ph9EcUPFPnyyy7SebhIHLjvzWmPtb9Q/exec";
 
 export const getInitialData = async () => {
   try {
     const res = await fetch(URL_API);
     return await res.json();
   } catch (err) {
-    console.error("Gagal ambil data:", err);
+    console.error("Gagal load data:", err);
     return null;
   }
 };
@@ -18,7 +18,6 @@ export const saveOrder = async (orderData) => {
     });
     return await res.json();
   } catch (err) {
-    console.error("Gagal simpan order:", err);
     return { status: "ERROR" };
   }
 };
@@ -27,11 +26,10 @@ export const updateShiftStatus = async (status) => {
   try {
     const res = await fetch(URL_API, {
       method: "POST",
-      body: JSON.stringify({ action: "updateShift", status: status }),
+      body: JSON.stringify({ action: "updateShift", status }),
     });
     return await res.json();
   } catch (err) {
-    console.error("Gagal update shift:", err);
     return { status: "ERROR" };
   }
 };
