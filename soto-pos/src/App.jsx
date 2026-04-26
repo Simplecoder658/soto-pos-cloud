@@ -12,16 +12,12 @@ export default function App() {
   const [payMethod, setPayMethod] = useState("Tunai");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Makanan");
-  const [showCartMobile, setShowCartMobile] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [lastOrder, setLastOrder] = useState(null);
 
   useEffect(() => { refreshData(); }, []);
-
   useEffect(() => {
-    if (db.orders) {
-      setNoNota("KR-" + String(db.orders.length + 1).padStart(3, '0'));
-    }
+    if (db.orders) setNoNota("KR-" + String(db.orders.length + 1).padStart(3, '0'));
   }, [db.orders]);
 
   const refreshData = async () => {
@@ -31,18 +27,11 @@ export default function App() {
     setLoading(false);
   };
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    const found = MASTER_USERS.find(u => u.username === login.username && u.pin === login.pin) 
-                || (db.users && db.users.find(u => u.username === login.username && u.pin === login.pin));
-    if (found) setUser(found); else alert("PIN Salah!");
-  };
-
   const addToCart = (item, opt) => {
     let p = item.price;
     if (opt === "Singkong") p -= 1000; 
     else if (opt === "Nasi") p += 1000;
-    const label = item.options?.length > 0 ? (opt || item.options[0]) : null;
+    const label = (item.options && item.options.length > 0) ? (opt || item.options[0]) : null;
     const existing = cart.find(x => x.id === item.id && x.option === label);
     if (existing) {
       setCart(cart.map(x => (x.id === item.id && x.option === label) ? {...existing, qty: existing.qty + 1} : x));
@@ -51,13 +40,24 @@ export default function App() {
     }
   };
 
+  if (loading && !user) return (
+    <div className="min-h-screen flex items-center justify-center bg-white text-orange-500 font-black animate-pulse text-2xl">
+      MEMBUKA KEDAI RAME...
+    </div>
+  );
+
   if (!user) return (
-    <div className="min-h-screen flex items-center justify-center bg-orange-600 p-4">
-      <form onSubmit={handleLogin} className="bg-white p-8 rounded-[2.5rem] w-full max-w-sm shadow-2xl">
-        <h1 className="text-3xl font-black text-orange-600 text-center mb-6 uppercase">KR23 KASIR</h1>
-        <input type="text" placeholder="Username" onChange={e => setLogin({...login, username: e.target.value})} className="w-full p-4 mb-3 border rounded-2xl outline-none" required />
-        <input type="password" placeholder="PIN" onChange={e => setLogin({...login, pin: e.target.value})} className="w-full p-4 mb-6 border rounded-2xl outline-none" required />
-        <button className="w-full py-4 bg-orange-600 text-white font-bold rounded-2xl shadow-lg">MASUK</button>
+    <div className="min-h-screen flex items-center justify-center bg-orange-500 p-4">
+      <form onSubmit={(e) => {
+        e.preventDefault();
+        const found = MASTER_USERS.find(u => u.username === login.username && u.pin === login.pin) 
+                    || (db.users && db.users.find(u => u.username === login.username && u.pin === login.pin));
+        if (found) setUser(found); else alert("PIN SALAH!");
+      }} className="bg-white p-10 rounded-[3rem] w-full max-w-sm shadow-2xl">
+        <h1 className="text-4xl font-black text-orange-500 text-center mb-8 italic uppercase">KR23</h1>
+        <input type="text" placeholder="Username" onChange={e => setLogin({...login, username: e.target.value})} className="w-full p-4 mb-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none" required />
+        <input type="password" placeholder="PIN" onChange={e => setLogin({...login, pin: e.target.value})} className="w-full p-4 mb-6 bg-gray-50 border border-gray-100 rounded-2xl outline-none" required />
+        <button className="w-full py-4 bg-orange-500 text-white font-black rounded-2xl shadow-lg active:scale-95 transition">MASUK</button>
       </form>
     </div>
   );
@@ -65,68 +65,61 @@ export default function App() {
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
       
-      {/* SIDEBAR - Kategori Pindah Kesini (Bagian Atas) */}
-      <div className="hidden md:flex flex-col w-28 bg-white border-r text-gray-400 p-2 gap-2 no-print shadow-sm">
-        <div className="font-black text-center text-orange-600 text-xl py-4 border-b mb-2 uppercase italic">KR23</div>
-        
-        {/* Navigasi Kategori di Sidebar Atas */}
-        <div className="flex flex-col gap-2 flex-1">
+      {/* SIDEBAR - KATEGORI DI ATAS */}
+      <div className="w-28 bg-white flex flex-col items-center py-6 border-r border-gray-100 shadow-sm z-20 no-print">
+        <div className="text-3xl font-black text-orange-500 italic mb-8 uppercase select-none">KR23</div>
+
+        {/* NAVIGASI KATEGORI */}
+        <div className="flex flex-col w-full gap-2 px-2 overflow-y-auto flex-1">
           {["Makanan", "Minuman", "Jajanan", "Extra"].map(cat => (
             <button 
               key={cat} 
-              onClick={() => setActiveTab(cat)} 
-              className={`text-[10px] font-black py-4 rounded-2xl transition-all flex flex-col items-center justify-center gap-1 ${activeTab === cat ? 'bg-orange-600 text-white shadow-md scale-105' : 'hover:bg-orange-50 hover:text-orange-600'}`}
+              onClick={() => setActiveTab(cat)}
+              className={`w-full flex flex-col items-center justify-center py-4 rounded-2xl transition-all ${activeTab === cat ? 'bg-orange-500 text-white shadow-md' : 'text-gray-400 hover:bg-orange-50'}`}
             >
-              <span>{cat === 'Makanan' ? '🍲' : cat === 'Minuman' ? '🍹' : cat === 'Jajanan' ? '🥨' : '➕'}</span>
-              {cat.toUpperCase()}
+              <span className="text-xl mb-1">{cat === 'Makanan' ? '🍲' : cat === 'Minuman' ? '🍹' : '🥨'}</span>
+              <span className="font-black text-[9px] tracking-widest">{cat.toUpperCase()}</span>
             </button>
           ))}
         </div>
 
-        {/* Menu Sistem di Sidebar Bawah */}
-        <div className="border-t pt-4 flex flex-col gap-2">
-          {user.role === 'admin' && (
-            <button onClick={async () => {
-              const next = db.shiftStatus === "OPEN" ? "CLOSED" : "OPEN";
-              if(confirm(`Ubah ke ${next}?`)) { await updateShiftStatus(next); refreshData(); }
-            }} className="text-[9px] bg-yellow-400 text-orange-900 py-3 rounded-2xl font-black uppercase">SHIFT</button>
-          )}
-          <button onClick={() => setUser(null)} className="text-[9px] font-black py-3 uppercase border rounded-2xl">KELUAR</button>
+        {/* NAVIGASI SISTEM */}
+        <div className="w-full px-2 mt-4 space-y-2 border-t pt-4">
+          <button onClick={() => setUser(null)} className="w-full py-3 text-[9px] font-black text-gray-400 uppercase hover:text-red-500 transition-colors">KELUAR</button>
         </div>
       </div>
 
-      {/* AREA UTAMA */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header Nota */}
-        <div className="p-4 bg-white border-b flex justify-between items-center no-print">
-            <h2 className="font-black text-gray-700 tracking-widest">{activeTab.toUpperCase()}</h2>
-            <div className="text-right">
-                <span className="text-[10px] font-bold text-gray-400 block">NO. NOTA</span>
-                <span className="font-black text-orange-600">{noNota}</span>
+      {/* AREA MENU UTAMA */}
+      <div className="flex-1 flex flex-col relative overflow-hidden bg-white">
+        {/* HEADER */}
+        <div className="p-6 flex justify-between items-center border-b border-gray-50 no-print">
+            <h2 className="text-xl font-black text-gray-800 tracking-tighter">{activeTab.toUpperCase()}</h2>
+            <div className="bg-orange-50 px-4 py-1 rounded-full border border-orange-100">
+                <span className="text-[10px] font-black text-orange-600">NOTA: {noNota}</span>
             </div>
         </div>
 
-        {/* Grid Menu (Sesuai Tema Awal) */}
+        {/* GRID MENU (PUTIH ORANYE) */}
         <div className="flex-1 p-6 overflow-y-auto no-print">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {db.menu.filter(m => String(m.category).toLowerCase() === activeTab.toLowerCase()).map((m) => (
-              <div key={m.id} className="bg-white p-4 rounded-[2rem] shadow-sm flex flex-col border border-orange-100 h-full hover:shadow-md transition">
-                <span className="text-4xl text-center mb-2">{m.img}</span>
-                <p className="font-bold text-[11px] text-center h-8 flex items-center justify-center mb-1 leading-tight">{m.name}</p>
-                <p className="text-orange-600 font-black text-center text-sm mb-3">Rp {m.price.toLocaleString()}</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {db.menu.filter(m => m.category.toLowerCase() === activeTab.toLowerCase()).map(m => (
+              <div key={m.id} className="bg-white rounded-[2rem] p-4 border border-gray-100 shadow-sm flex flex-col hover:border-orange-200 transition-all">
+                <div className="text-5xl text-center mb-3">{m.img}</div>
+                <h3 className="font-black text-gray-700 text-[11px] text-center h-8 flex items-center justify-center leading-tight mb-1 uppercase">{m.name}</h3>
+                <p className="text-orange-500 font-black text-center text-sm mb-4">Rp {m.price.toLocaleString()}</p>
+                
                 <div className="mt-auto space-y-2">
-                  {m.options?.length > 0 && (
-                    <select id={`opt-${m.id}`} className="w-full p-2 text-[10px] bg-orange-50 border rounded-xl font-bold outline-none">
+                  {m.options && m.options.length > 0 && (
+                    <select id={`opt-${m.id}`} className="w-full p-2 text-[10px] bg-orange-50 border border-orange-100 rounded-xl font-black text-orange-700 outline-none">
                       {m.options.map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
                   )}
-                  <button 
-                    onClick={() => {
-                      const optVal = m.options?.length > 0 ? document.getElementById(`opt-${m.id}`).value : null;
+                  <button onClick={() => {
+                      const optVal = (m.options && m.options.length > 0) ? document.getElementById(`opt-${m.id}`).value : null;
                       addToCart(m, optVal);
                     }} 
                     disabled={db.shiftStatus === 'CLOSED'}
-                    className="w-full py-2 bg-orange-600 text-white rounded-xl text-[10px] font-bold active:scale-95 transition"
+                    className="w-full py-2 bg-orange-500 text-white rounded-xl text-[10px] font-black shadow-sm active:scale-95 transition disabled:bg-gray-200"
                   >
                     TAMBAH
                   </button>
@@ -137,31 +130,36 @@ export default function App() {
         </div>
       </div>
 
-      {/* Keranjang Samping (Tema Awal) */}
-      <div className="w-80 bg-white border-l flex flex-col no-print">
-        <div className="p-4 border-b font-black text-gray-600 text-center tracking-tighter">DAFTAR PESANAN</div>
+      {/* KERANJANG SAMPING (PUTIH) */}
+      <div className="w-80 bg-white border-l border-gray-100 flex flex-col no-print shadow-xl">
+        <div className="p-4 border-b text-center">
+            <span className="text-[10px] font-black text-gray-400 tracking-[0.3em] uppercase">Pesanan Pelanggan</span>
+        </div>
+        
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {cart.map((item, i) => (
-            <div key={i} className="flex justify-between text-xs border-b pb-2">
+            <div key={i} className="flex justify-between items-center text-xs border-b border-gray-50 pb-2">
               <div className="flex-1 pr-2">
-                <b className="text-gray-800 uppercase">{item.name}</b>
-                <br/><small className="text-orange-600 font-bold">{item.option ? `${item.option} ` : ''}x{item.qty}</small>
+                <b className="text-gray-700 uppercase leading-none block mb-1">{item.name}</b>
+                <span className="text-[10px] text-orange-500 font-black">{item.option ? `${item.option} ` : ''}x{item.qty}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <b className="text-gray-900">{(item.price * item.qty).toLocaleString()}</b>
-                <button onClick={() => setCart(cart.filter((_, idx) => idx !== i))} className="text-red-500 font-bold">✕</button>
+              <div className="flex items-center gap-3">
+                <b className="text-gray-800">{(item.price * item.qty).toLocaleString()}</b>
+                <button onClick={() => setCart(cart.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-600 font-bold">✕</button>
               </div>
             </div>
           ))}
         </div>
-        <div className="p-6 bg-gray-50 border-t space-y-4">
-          <div className="flex gap-2">
-            <button onClick={() => setPayMethod("Tunai")} className={`flex-1 py-2 text-[10px] font-bold rounded-xl ${payMethod === "Tunai" ? "bg-orange-600 text-white" : "bg-white border text-gray-400"}`}>TUNAI</button>
-            <button onClick={() => setPayMethod("QRIS")} className={`flex-1 py-2 text-[10px] font-bold rounded-xl ${payMethod === "QRIS" ? "bg-blue-600 text-white" : "bg-white border text-gray-400"}`}>QRIS</button>
+
+        {/* PEMBAYARAN */}
+        <div className="p-6 bg-gray-50 border-t border-gray-100 space-y-4">
+          <div className="flex gap-2 p-1 bg-white rounded-2xl border border-gray-200">
+            <button onClick={() => setPayMethod("Tunai")} className={`flex-1 py-2 text-[10px] font-black rounded-xl transition ${payMethod === "Tunai" ? "bg-orange-500 text-white shadow-md" : "text-gray-400"}`}>TUNAI</button>
+            <button onClick={() => setPayMethod("QRIS")} className={`flex-1 py-2 text-[10px] font-black rounded-xl transition ${payMethod === "QRIS" ? "bg-orange-500 text-white shadow-md" : "text-gray-400"}`}>QRIS</button>
           </div>
-          <div className="flex justify-between font-black text-xl text-orange-700">
-            <span>TOTAL</span>
-            <span>Rp {cart.reduce((a,c)=>a+(c.price*c.qty),0).toLocaleString()}</span>
+          <div className="flex justify-between items-end px-1">
+            <span className="text-[10px] font-black text-gray-400 uppercase">Total Tagihan</span>
+            <span className="text-2xl font-black text-orange-600 italic leading-none">Rp {cart.reduce((a,c)=>a+(c.price*c.qty),0).toLocaleString()}</span>
           </div>
           <button 
             onClick={async () => {
@@ -173,32 +171,34 @@ export default function App() {
                 }
                 setLoading(false);
             }} 
-            disabled={cart.length === 0 || db.shiftStatus === 'CLOSED'} 
-            className="w-full py-4 bg-green-600 text-white rounded-2xl font-black shadow-lg disabled:bg-gray-300"
+            disabled={cart.length === 0 || db.shiftStatus === 'CLOSED' || loading} 
+            className="w-full py-4 bg-orange-500 text-white rounded-[2rem] font-black shadow-lg disabled:bg-gray-200 active:scale-95 transition uppercase tracking-widest"
           >
-             {db.shiftStatus === 'OPEN' ? 'BAYAR' : 'SHIFT TUTUP'}
+             {db.shiftStatus === 'OPEN' ? (loading ? 'PROSES...' : 'BAYAR SEKARANG') : 'SHIFT TUTUP'}
           </button>
         </div>
       </div>
 
-      {/* Struk Modal */}
+      {/* STRUK */}
       {showReceipt && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4">
-          <div className="bg-white p-6 rounded-[2rem] w-full max-w-xs shadow-2xl font-mono text-[11px]">
-            <center className="mb-4 font-bold uppercase">Kedai Rame 23<br/><small>{lastOrder?.time}</small></center>
-            {lastOrder?.items.map((it, i) => (
-                <div key={i} className="flex justify-between mb-1">
-                  <span>{it.name} {it.option ? `(${it.option})` : ''} x{it.qty}</span>
-                  <span>{(it.price*it.qty).toLocaleString()}</span>
-                </div>
-            ))}
-            <div className="border-t border-dashed my-2 border-black"></div>
-            <div className="flex justify-between font-bold text-sm"><span>TOTAL</span><span>Rp {lastOrder?.total.toLocaleString()}</span></div>
-            <div className="flex gap-2 mt-6">
-              <button onClick={() => window.print()} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold">PRINT</button>
-              <button onClick={() => {setShowReceipt(false); setCart([]); refreshData();}} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold">TUTUP</button>
+        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
+            <div className="bg-white p-8 rounded-[3rem] w-full max-w-xs font-mono text-[11px] shadow-2xl">
+                <center className="mb-4">
+                  <b className="text-sm">KEDAI RAME 23</b><br/>
+                  <small className="opacity-50">{lastOrder.time}</small>
+                </center>
+                <div className="mb-2">Nota: {lastOrder.noNota}</div>
+                <div className="border-t border-dashed my-2 border-black"></div>
+                {lastOrder.items.map((it, i) => (
+                    <div key={i} className="flex justify-between mb-1">
+                        <span className="flex-1 pr-2">{it.name} {it.option ? `(${it.option})` : ''} x{it.qty}</span>
+                        <span>{(it.price*it.qty).toLocaleString()}</span>
+                    </div>
+                ))}
+                <div className="border-t border-dashed my-2 border-black"></div>
+                <div className="flex justify-between font-black text-sm mb-8"><span>TOTAL</span><span>Rp {lastOrder.total.toLocaleString()}</span></div>
+                <button onClick={() => {setShowReceipt(false); setCart([]); refreshData();}} className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black shadow-lg">SELESAI</button>
             </div>
-          </div>
         </div>
       )}
     </div>
