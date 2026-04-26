@@ -1,4 +1,4 @@
-const URL_API = "https://script.google.com/macros/s/AKfycbz1N05imo_byeZovhxEq2Gb_EsN__GIAq9bzVeJ28hitRCnd2YDOvOKhYFGDLGPN3I_lA/exec";
+const URL_API = "https://script.google.com/macros/s/AKfycbwgHjog94j7AVWTAm9YKtLL29B4WYUlCGDo1niCj3Ti53t0QRBeqWEcWB85adI_-YH67A/exec";
 
 export const getInitialData = async () => {
   try {
